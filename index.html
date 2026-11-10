@@ -67,6 +67,12 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .card{border-radius:18px;backdrop-filter:none;-webkit-backdrop-filter:none}
 .cover{background:#161616;box-shadow:none;border-radius:12px}
 .cover span{opacity:.25}
+.item{display:flex;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--edge)}
+.item:first-child{border-top:0}
+.item .meta{flex:1;min-width:0}
+.item b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item small{color:var(--muted);font-size:13px}
+.sm{padding:9px 13px;font-size:14px}
 </style>
 </head>
 <body>
@@ -75,10 +81,10 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
-      <div class="cover" id="cover"><img id="coverImg" alt="Обложка"><span>♪</span></div>
+      <div class="cover" id="cover"><span>♪</span></div>
       <canvas id="viz" width="400" height="56" aria-hidden="true"></canvas>
-      <div class="title" id="name">Выбери трек справа</div>
-      <div class="hint" id="sub">Здесь появится обложка и визуализация</div>
+      <div class="title" id="name">Выбери трек</div>
+      <div class="hint" id="sub">Загрузи песню ниже</div>
       <div class="bar">
         <button class="play" id="play" disabled aria-label="Играть">▶</button>
         <div class="seekbox">
@@ -86,20 +92,16 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
           <div class="time"><span id="cur">0:00</span><span id="dur">0:00</span></div>
         </div>
       </div>
+      <p class="hint" style="margin-top:12px">Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.</p>
     </section>
 
     <div>
       <section class="card" aria-label="Источник">
         <h2>1. Трек</h2>
-        <div class="src">
-          <input type="text" id="link" placeholder="Ссылка на трек из Spotify" inputmode="url" autocomplete="off">
-          <button class="btn ghost" id="fetch">Найти</button>
-        </div>
         <label class="drop" id="drop">
-          <input type="file" id="file" accept="audio/*">
-          Выбери аудиофайл или перетащи сюда
+          <input type="file" id="file">
+          Нажми и выбери песню (mp3, m4a, wav)
         </label>
-        <p class="note">Spotify не отдаёт сам звук, поэтому по ссылке подтягиваются только обложка и название. Саму песню загрузи файлом.</p>
       </section>
 
       <section class="card fx" aria-label="Эффекты">
@@ -108,6 +110,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
           <button class="chip" data-p="0.85,6,35">Slowed + reverb</button>
           <button class="chip" data-p="1.25,4,0">Speed up</button>
           <button class="chip" data-p="1,14,0">Bass boost</button>
+          <button class="chip" data-p="1,6,25,70">8D</button>
           <button class="chip" data-p="0.8,10,55">Дождливый</button>
           <button class="chip" data-p="1,0,0">Сбросить</button>
         </div>
@@ -118,8 +121,17 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
           <input type="range" id="bass" min="0" max="20" step="1" value="0"></div>
         <div class="ctl"><div class="top"><label for="reverb">Реверб</label><output id="reverbO">0%</output></div>
           <input type="range" id="reverb" min="0" max="100" step="1" value="0"></div>
+        <div class="ctl"><div class="top"><label for="pan">8D панорама</label><output id="panO">0%</output></div>
+          <input type="range" id="pan" min="0" max="100" step="1" value="0"></div>
         <button class="btn dl" id="dl" disabled>Скачать WAV</button>
+        <button class="btn ghost dl" id="save" disabled style="margin-top:10px">Сохранить в библиотеку</button>
         <p class="status" id="status" role="status"></p>
+      </section>
+
+      <section class="card fx" aria-label="Библиотека">
+        <h2>3. Сохранённое</h2>
+        <div id="lib"></div>
+        <p class="hint" id="libEmpty">Пока пусто. Настрой звук и нажми «Сохранить в библиотеку».</p>
       </section>
     </div>
   </div>
@@ -127,15 +139,15 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 
 <script>
 const $ = id => document.getElementById(id);
-const S = { speed: 1, bass: 0, reverb: 0 };
-let file = null, ctx = null, nodes = null, analyser = null, title = '';
-const audio = new Audio();
-audio.preservesPitch = audio.mozPreservesPitch = audio.webkitPreservesPitch = false;
+const S = { speed: 1, bass: 0, reverb: 0, pan: 0 };
+let ctx = null, nodes = null, analyser = null, buffer = null, src = null;
+let curFile = null, offset = 0, startCtx = 0, playing = false, dragging = false, title = '';
 
 const fill = el => el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min) * 100 + '%');
 const status = m => $('status').textContent = m || '';
-
 const fmt = t => isFinite(t) ? Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0') : '0:00';
+const cleanName = n => { try { n = decodeURIComponent(n); } catch (e) {} return n.replace(/\.(mp3|m4a|wav|ogg|aac|flac|opus)$/i, ''); };
+function setTitle(t, sub) { title = t; $('name').textContent = t; if (sub !== undefined) $('sub').textContent = sub; }
 
 /* ---------- аудио-цепочка ---------- */
 function makeImpulse(c, sec = 2.5, decay = 2.5) {
@@ -149,32 +161,62 @@ function buildChain(c, src, dest) {
   const dry = c.createGain(), wet = c.createGain(), lim = c.createDynamicsCompressor();
   lim.threshold.value = -4; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .003; lim.release.value = .15;
   src.connect(bass); bass.connect(dry); bass.connect(conv); conv.connect(wet);
-  dry.connect(lim); wet.connect(lim); lim.connect(dest);
-  return { bass, dry, wet, lim };
+  dry.connect(lim); wet.connect(lim);
+  let depth = null, out = lim;
+  if (c.createStereoPanner) {
+    const pan = c.createStereoPanner(), lfo = c.createOscillator(); depth = c.createGain();
+    lfo.frequency.value = .15; lfo.connect(depth); depth.connect(pan.pan); lfo.start();
+    lim.connect(pan); out = pan;
+  }
+  out.connect(dest);
+  return { bass, dry, wet, lim, depth };
 }
 function applySettings(n) {
   n.bass.gain.value = S.bass;
   n.wet.gain.value = S.reverb / 100 * .9;
   n.dry.gain.value = 1 - S.reverb / 100 * .35;
+  if (n.depth) n.depth.gain.value = S.pan / 100;
 }
+// iOS: звук Web Audio глушится переключателем «без звука», поэтому на iPhone выводим его через <audio>
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const outEl = new Audio(); outEl.playsInline = true;
 function initAudio() {
   if (ctx) return;
+  try { navigator.audioSession.type = 'playback'; } catch (e) {}
   ctx = new (window.AudioContext || window.webkitAudioContext)();
-  nodes = buildChain(ctx, ctx.createMediaElementSource(audio), ctx.destination);
+  const inp = ctx.createGain();
+  let dest = ctx.destination;
+  if (IOS && 'srcObject' in outEl) { dest = ctx.createMediaStreamDestination(); outEl.srcObject = dest.stream; }
+  nodes = buildChain(ctx, inp, dest); nodes.inp = inp;
   analyser = ctx.createAnalyser(); analyser.fftSize = 128; analyser.smoothingTimeConstant = .8;
   nodes.lim.connect(analyser);
   applySettings(nodes);
 }
 
-/* ---------- загрузка трека ---------- */
-function setTitle(t, sub) { title = t; $('name').textContent = t; if (sub !== undefined) $('sub').textContent = sub; }
-function loadFile(f) {
-  if (!f || !f.type.startsWith('audio/')) return status('Нужен аудиофайл: mp3, wav, m4a или ogg.');
-  file = f; audio.src = URL.createObjectURL(f); audio.playbackRate = S.speed;
-  if (!$('cover').classList.contains('has') || !title) setTitle(f.name.replace(/\.[^.]+$/, ''), 'Файл загружен');
-  else $('sub').textContent = 'Файл: ' + f.name;
-  ['play', 'seek', 'dl'].forEach(id => $(id).disabled = false);
-  status('');
+/* ---------- воспроизведение ---------- */
+const pos = () => !buffer ? 0 : playing ? Math.min(buffer.duration, offset + (ctx.currentTime - startCtx) * S.speed) : offset;
+const setPlayUI = () => $('play').textContent = playing ? '❚❚' : '▶';
+function stopSrc() { if (src) { src.onended = null; try { src.stop(); } catch (e) {} src.disconnect(); src = null; } }
+function startAt(o) {
+  stopSrc();
+  src = ctx.createBufferSource(); src.buffer = buffer; src.playbackRate.value = S.speed; src.connect(nodes.inp);
+  src.onended = () => { if (playing && pos() >= buffer.duration - 0.1) { playing = false; offset = 0; stopSrc(); outEl.pause(); setPlayUI(); } };
+  offset = o; startCtx = ctx.currentTime; src.start(0, o); playing = true; setPlayUI();
+}
+
+/* ---------- загрузка файла ---------- */
+async function loadFile(f, nm, trusted) {
+  if (!f) return;
+  if (!trusted && f.type && !f.type.startsWith('audio/') && !/\.(mp3|m4a|wav|ogg|aac|flac|opus|mp4)$/i.test(f.name)) return status('Нужен аудиофайл: mp3, wav, m4a или ogg.');
+  initAudio(); status('Загружаю трек…');
+  try {
+    const ab = await f.arrayBuffer();
+    const buf = await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej));
+    stopSrc(); playing = false; outEl.pause(); buffer = buf; offset = 0;
+    curFile = f; setTitle(cleanName(nm || f.name), 'Длина: ' + fmt(buf.duration));
+    ['play', 'seek', 'dl', 'save'].forEach(id => $(id).disabled = false);
+    setPlayUI(); status('');
+  } catch (e) { status('Не получилось прочитать файл. Попробуй mp3 или m4a.'); }
 }
 $('file').onchange = e => loadFile(e.target.files[0]);
 const drop = $('drop');
@@ -182,55 +224,49 @@ const drop = $('drop');
 ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
 
-/* ---------- Spotify: обложка и название ---------- */
-$('fetch').onclick = async () => {
-  const url = $('link').value.trim();
-  if (!/open\.spotify\.com\/(intl-[a-z]+\/)?track\//.test(url)) return status('Вставь ссылку вида open.spotify.com/track/…');
-  status('Ищу трек…');
-  try {
-    const r = await fetch('https://open.spotify.com/oembed?url=' + encodeURIComponent(url));
-    if (!r.ok) throw 0;
-    const j = await r.json();
-    setTitle(j.title, 'Из Spotify. Теперь загрузи файл песни');
-    $('coverImg').src = j.thumbnail_url; $('cover').classList.add('has');
-    status(file ? '' : 'Обложка найдена. Осталось загрузить аудиофайл.');
-  } catch (e) { status('Не удалось найти трек. Проверь ссылку.'); }
+$('play').onclick = () => {
+  if (!buffer) return;
+  initAudio();
+  if (ctx.state !== 'running') ctx.resume();
+  if (playing) { offset = pos(); stopSrc(); playing = false; outEl.pause(); setPlayUI(); }
+  else { outEl.play().catch(() => {}); startAt(offset >= buffer.duration - 0.1 ? 0 : offset); }
 };
-$('link').addEventListener('keydown', e => e.key === 'Enter' && $('fetch').click());
-
-/* ---------- плеер ---------- */
-$('play').onclick = async () => { initAudio(); await ctx.resume(); audio.paused ? audio.play() : audio.pause(); };
-audio.onplay = () => $('play').textContent = '❚❚';
-audio.onpause = audio.onended = () => $('play').textContent = '▶';
-$('seek').oninput = e => { fill(e.target); if (audio.duration) audio.currentTime = e.target.value / 1000 * audio.duration; };
-audio.ontimeupdate = () => {
-  if (audio.duration) { $('seek').value = audio.currentTime / audio.duration * 1000; fill($('seek')); }
-  $('cur').textContent = fmt(audio.currentTime); $('dur').textContent = fmt(audio.duration);
+$('seek').oninput = e => { dragging = true; fill(e.target); if (buffer) $('cur').textContent = fmt(e.target.value / 1000 * buffer.duration); };
+$('seek').onchange = e => {
+  dragging = false; if (!buffer) return;
+  const t = e.target.value / 1000 * buffer.duration;
+  if (playing) startAt(t); else offset = t;
 };
 
 /* ---------- настройки ---------- */
-function setSettings(speed, bass, reverb) {
-  S.speed = +speed; S.bass = +bass; S.reverb = +reverb;
-  $('speed').value = S.speed; $('bass').value = S.bass; $('reverb').value = S.reverb;
-  ['speed', 'bass', 'reverb'].forEach(id => fill($(id)));
+function setSettings(speed, bass, reverb, pan = 0) {
+  if (playing) { offset = pos(); startCtx = ctx.currentTime; }
+  S.speed = +speed; S.bass = +bass; S.reverb = +reverb; S.pan = +pan;
+  $('speed').value = S.speed; $('bass').value = S.bass; $('reverb').value = S.reverb; $('pan').value = S.pan;
+  ['speed', 'bass', 'reverb', 'pan'].forEach(id => fill($(id)));
   $('speedO').textContent = S.speed.toFixed(2) + 'x';
   $('bassO').textContent = '+' + S.bass + ' dB';
   $('reverbO').textContent = S.reverb + '%';
-  audio.playbackRate = S.speed;
+  $('panO').textContent = S.pan + '%';
+  if (src) src.playbackRate.value = S.speed;
   if (nodes) applySettings(nodes);
 }
-['speed', 'bass', 'reverb'].forEach(id => $(id).oninput = () => setSettings($('speed').value, $('bass').value, $('reverb').value));
+['speed', 'bass', 'reverb', 'pan'].forEach(id => $(id).oninput = () => setSettings($('speed').value, $('bass').value, $('reverb').value, $('pan').value));
 document.querySelectorAll('.chip').forEach(b => b.onclick = () => setSettings(...b.dataset.p.split(',')));
 setSettings(1, 0, 0); fill($('seek'));
 
-/* ---------- визуализация: бары + пульс обложки от баса ---------- */
+/* ---------- визуализация + время ---------- */
 const vz = $('viz'), vg = vz.getContext('2d');
 (function draw() {
   requestAnimationFrame(draw);
+  if (buffer) {
+    const p = pos(); $('dur').textContent = fmt(buffer.duration);
+    if (!dragging) { $('seek').value = p / buffer.duration * 1000; fill($('seek')); $('cur').textContent = fmt(p); }
+  }
   vg.clearRect(0, 0, vz.width, vz.height);
-  const a = getComputedStyle(document.documentElement).getPropertyValue('--a').trim() || '#ff7ab8';
+  const a = getComputedStyle(document.documentElement).getPropertyValue('--a').trim() || '#fff';
   let low = 0;
-  if (analyser && !audio.paused) {
+  if (analyser && playing) {
     const d = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(d);
     const n = 32, w = vz.width / n;
     for (let i = 0; i < n; i++) {
@@ -258,14 +294,13 @@ function toWav(buf) {
   return new Blob([o], { type: 'audio/wav' });
 }
 $('dl').onclick = async () => {
+  if (!buffer) return;
   $('dl').disabled = true; status('Обрабатываю трек…');
   try {
-    const tmp = new (window.AudioContext || window.webkitAudioContext)();
-    const buf = await tmp.decodeAudioData(await file.arrayBuffer()); tmp.close();
-    const tail = S.reverb > 0 ? 2.5 : 0;
+    const buf = buffer, tail = S.reverb > 0 ? 2.5 : 0;
     const off = new OfflineAudioContext(2, Math.ceil((buf.duration / S.speed + tail) * buf.sampleRate), buf.sampleRate);
-    const src = off.createBufferSource(); src.buffer = buf; src.playbackRate.value = S.speed;
-    applySettings(buildChain(off, src, off.destination)); src.start();
+    const s = off.createBufferSource(); s.buffer = buf; s.playbackRate.value = S.speed;
+    applySettings(buildChain(off, s, off.destination)); s.start();
     const blob = toWav(await off.startRendering());
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = (title || 'track') + ' (lowend).wav'; a.click();
@@ -273,6 +308,45 @@ $('dl').onclick = async () => {
   } catch (e) { status('Не получилось обработать файл. Попробуй другой формат.'); }
   $('dl').disabled = false;
 };
+
+/* ---------- библиотека сохранённых треков ---------- */
+const dbp = new Promise((res, rej) => {
+  const r = indexedDB.open('lowend', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('tracks', { keyPath: 'id', autoIncrement: true });
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+});
+const tx = async (mode, fn) => {
+  const db = await dbp;
+  return new Promise((res, rej) => {
+    const t = db.transaction('tracks', mode), out = fn(t.objectStore('tracks'));
+    t.oncomplete = () => res(out.result); t.onerror = () => rej(t.error);
+  });
+};
+const mkBtn = (txt, fn) => { const b = document.createElement('button'); b.className = 'btn ghost sm'; b.textContent = txt; b.onclick = fn; return b; };
+async function renderLib() {
+  let all = [];
+  try { all = await tx('readonly', s => s.getAll()); } catch (e) {}
+  $('lib').innerHTML = ''; $('libEmpty').style.display = all.length ? 'none' : '';
+  all.reverse().forEach(t => {
+    const row = document.createElement('div'); row.className = 'item';
+    const meta = document.createElement('div'); meta.className = 'meta';
+    const b = document.createElement('b'); b.textContent = t.title;
+    const sm = document.createElement('small');
+    sm.textContent = t.speed.toFixed(2) + 'x · +' + t.bass + ' dB · реверб ' + t.reverb + '%' + (t.pan ? ' · 8D ' + t.pan + '%' : '');
+    meta.append(b, sm);
+    const open = mkBtn('Открыть', async () => { await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    const del = mkBtn('✕', async () => { await tx('readwrite', s => s.delete(t.id)); renderLib(); }); del.setAttribute('aria-label', 'Удалить');
+    row.append(meta, open, del); $('lib').append(row);
+  });
+}
+$('save').onclick = async () => {
+  if (!curFile) return;
+  try {
+    await tx('readwrite', s => s.add({ title, blob: curFile, speed: S.speed, bass: S.bass, reverb: S.reverb, pan: S.pan, created: Date.now() }));
+    status('Сохранено в библиотеку.'); renderLib();
+  } catch (e) { status('Не удалось сохранить в этом браузере.'); }
+};
+renderLib();
 </script>
 </body>
 </html>
