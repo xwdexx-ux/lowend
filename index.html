@@ -73,6 +73,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .item b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item small{color:var(--muted);font-size:13px}
 .sm{padding:9px 13px;font-size:14px}
+.chip[aria-pressed=true]{background:var(--a);color:var(--onA);border-color:transparent;font-weight:600}
 </style>
 </head>
 <body>
@@ -107,12 +108,12 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
       <section class="card fx" aria-label="Эффекты">
         <h2>2. Звук</h2>
         <div class="chips">
-          <button class="chip" data-p="0.85,6,35">Slowed + reverb</button>
-          <button class="chip" data-p="1.25,4,0">Speed up</button>
-          <button class="chip" data-p="1,14,0">Bass boost</button>
-          <button class="chip" data-p="1,6,25,70">8D</button>
-          <button class="chip" data-p="0.8,10,55">Дождливый</button>
-          <button class="chip" data-p="1,0,0">Сбросить</button>
+          <button class="chip" data-p="speed=0.85">Slowed</button>
+          <button class="chip" data-p="speed=1.25">Speed up</button>
+          <button class="chip" data-p="bass=14">Bass boost</button>
+          <button class="chip" data-p="reverb=40">Reverb</button>
+          <button class="chip" data-p="pan=70">8D</button>
+          <button class="chip" data-reset>Сбросить</button>
         </div>
         <div style="height:16px"></div>
         <div class="ctl"><div class="top"><label for="speed">Скорость</label><output id="speedO">1.00x</output></div>
@@ -147,7 +148,10 @@ const fill = el => el.style.setProperty('--p', (el.value - el.min) / (el.max - e
 const status = m => $('status').textContent = m || '';
 const fmt = t => isFinite(t) ? Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0') : '0:00';
 const cleanName = n => { try { n = decodeURIComponent(n); } catch (e) {} return n.replace(/\.(mp3|m4a|wav|ogg|aac|flac|opus)$/i, ''); };
-function setTitle(t, sub) { title = t; $('name').textContent = t; if (sub !== undefined) $('sub').textContent = sub; }
+function setTitle(t, sub) {
+  title = t; $('name').textContent = t; if (sub !== undefined) $('sub').textContent = sub;
+  if ('mediaSession' in navigator && window.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({ title: t, artist: 'lowend' });
+}
 
 /* ---------- аудио-цепочка ---------- */
 function makeImpulse(c, sec = 2.5, decay = 2.5) {
@@ -186,7 +190,7 @@ function initAudio() {
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   const inp = ctx.createGain();
   let dest = ctx.destination;
-  if (IOS && 'srcObject' in outEl) { dest = ctx.createMediaStreamDestination(); outEl.srcObject = dest.stream; }
+  if ('srcObject' in outEl && ctx.createMediaStreamDestination) { dest = ctx.createMediaStreamDestination(); outEl.srcObject = dest.stream; }
   nodes = buildChain(ctx, inp, dest); nodes.inp = inp;
   analyser = ctx.createAnalyser(); analyser.fftSize = 128; analyser.smoothingTimeConstant = .8;
   nodes.lim.connect(analyser);
@@ -195,7 +199,10 @@ function initAudio() {
 
 /* ---------- воспроизведение ---------- */
 const pos = () => !buffer ? 0 : playing ? Math.min(buffer.duration, offset + (ctx.currentTime - startCtx) * S.speed) : offset;
-const setPlayUI = () => $('play').textContent = playing ? '❚❚' : '▶';
+const setPlayUI = () => {
+  $('play').textContent = playing ? '❚❚' : '▶';
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+};
 function stopSrc() { if (src) { src.onended = null; try { src.stop(); } catch (e) {} src.disconnect(); src = null; } }
 function startAt(o) {
   stopSrc();
@@ -224,13 +231,24 @@ const drop = $('drop');
 ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
 
-$('play').onclick = () => {
+function togglePlay(want) {
   if (!buffer) return;
   initAudio();
   if (ctx.state !== 'running') ctx.resume();
-  if (playing) { offset = pos(); stopSrc(); playing = false; outEl.pause(); setPlayUI(); }
-  else { outEl.play().catch(() => {}); startAt(offset >= buffer.duration - 0.1 ? 0 : offset); }
-};
+  const go = want === undefined ? !playing : want;
+  if (!go && playing) { offset = pos(); stopSrc(); playing = false; outEl.pause(); setPlayUI(); }
+  else if (go && !playing) { outEl.play().catch(() => {}); startAt(offset >= buffer.duration - 0.1 ? 0 : offset); }
+}
+const seekTo = t => { if (playing) startAt(t); else offset = t; };
+$('play').onclick = () => togglePlay();
+if ('mediaSession' in navigator) {
+  const ms = navigator.mediaSession;
+  const set = (a, f) => { try { ms.setActionHandler(a, f); } catch (e) {} };
+  set('play', () => togglePlay(true)); set('pause', () => togglePlay(false));
+  set('seekto', d => { if (buffer && d.seekTime != null) seekTo(d.seekTime); });
+}
+// Вернулись на сайт: если звук остановила система, включаем контекст обратно
+document.addEventListener('visibilitychange', () => { if (ctx && playing && ctx.state !== 'running') ctx.resume(); });
 $('seek').oninput = e => { dragging = true; fill(e.target); if (buffer) $('cur').textContent = fmt(e.target.value / 1000 * buffer.duration); };
 $('seek').onchange = e => {
   dragging = false; if (!buffer) return;
@@ -250,9 +268,20 @@ function setSettings(speed, bass, reverb, pan = 0) {
   $('panO').textContent = S.pan + '%';
   if (src) src.playbackRate.value = S.speed;
   if (nodes) applySettings(nodes);
+  if (typeof markChips === 'function') markChips();
 }
 ['speed', 'bass', 'reverb', 'pan'].forEach(id => $(id).oninput = () => setSettings($('speed').value, $('bass').value, $('reverb').value, $('pan').value));
-document.querySelectorAll('.chip').forEach(b => b.onclick = () => setSettings(...b.dataset.p.split(',')));
+const DEF = { speed: 1, bass: 0, reverb: 0, pan: 0 };
+const parseP = str => Object.fromEntries(str.split(',').map(x => x.split('=')).map(([k, v]) => [k, +v]));
+const isOn = b => Object.entries(parseP(b.dataset.p)).every(([k, v]) => S[k] === v);
+const markChips = () => document.querySelectorAll('.chip[data-p]').forEach(b => b.setAttribute('aria-pressed', isOn(b)));
+// Каждая кнопка меняет только свой параметр, остальное сохраняется. Повторное нажатие выключает эффект.
+document.querySelectorAll('.chip').forEach(b => b.onclick = () => {
+  if (b.hasAttribute('data-reset')) return setSettings(1, 0, 0, 0);
+  const p = parseP(b.dataset.p), on = isOn(b), n = { ...S };
+  Object.keys(p).forEach(k => n[k] = on ? DEF[k] : p[k]);
+  setSettings(n.speed, n.bass, n.reverb, n.pan);
+});
 setSettings(1, 0, 0); fill($('seek'));
 
 /* ---------- визуализация + время ---------- */
