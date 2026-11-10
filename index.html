@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lowend</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;600&family=Space+Mono:wght@400;700&display=swap">
+<style>
+:root{--a:#fff;--b:#8a8a8a;--ink:#000;--text:#fff;--muted:#8a8a8a;--glass:#0d0d0d;--edge:#242424;--track:#2a2a2a;--thumb:#fff;--onA:#000;--playbg:#fff;--playfg:#000;--field:#000;color-scheme:dark}
+*{box-sizing:border-box;margin:0}
+html,body{min-height:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
+body{background:var(--ink);color:var(--text);font:400 16px/1.5 "Instrument Sans",system-ui,sans-serif;overflow-x:hidden}
+.wrap{max-width:1000px;margin:0 auto;padding:28px 16px 80px}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px}
+.logo{font:800 26px "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.logo i{font-style:normal;color:var(--a)}
+.grid{display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
+.grid>*,.card{min-width:0}
+@media(min-width:860px){.grid{grid-template-columns:420px minmax(0,1fr);align-items:start}}
+.card{background:var(--glass);border:1px solid var(--edge);border-radius:26px;padding:20px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.cover{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:1;border-radius:22px;overflow:hidden;background:linear-gradient(135deg,var(--a),var(--b));box-shadow:0 24px 60px #0007;transition:transform .08s linear;display:grid;place-items:center}
+.cover img{width:100%;height:100%;object-fit:cover;display:none}
+.cover.has img{display:block}
+.cover span{font:800 90px "Bricolage Grotesque",sans-serif;opacity:.5}
+.cover.has span{display:none}
+canvas{width:100%;height:56px;display:block;margin:16px 0 4px}
+.title{font:800 24px/1.15 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hint{color:var(--muted);font-size:14px}
+.bar{display:flex;align-items:center;gap:14px;margin-top:12px}
+.play{flex:none;width:58px;height:58px;border-radius:50%;border:0;background:var(--playbg);color:var(--playfg);font-size:20px;cursor:pointer;transition:transform .12s}
+.play:active{transform:scale(.94)}
+.play:disabled{opacity:.35;cursor:not-allowed}
+.time{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.seekbox{flex:1}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;cursor:pointer;--p:0%}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:linear-gradient(90deg,var(--a) var(--p),var(--track) var(--p))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--thumb);margin-top:-7px;box-shadow:0 2px 8px #0008}
+input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:var(--track)}
+input[type=range]::-moz-range-progress{height:6px;border-radius:6px;background:var(--a)}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border:0;border-radius:50%;background:var(--thumb)}
+input[type=range]:disabled{opacity:.4}
+h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
+.src{display:flex;gap:8px}
+.src input[type=text]{flex:1;min-width:0;background:var(--field);border:1px solid var(--edge);border-radius:14px;padding:12px 14px;color:var(--text);font:inherit}
+.src input::placeholder{color:#a59cc488}
+.btn{border:0;border-radius:14px;padding:12px 16px;font:600 15px "Instrument Sans",sans-serif;cursor:pointer;background:var(--a);color:var(--onA)}
+.btn.ghost{background:var(--glass);border:1px solid var(--edge);color:var(--text)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.drop{margin-top:10px;display:block;text-align:center;border:1.5px dashed var(--edge);border-radius:14px;padding:16px;color:var(--muted);cursor:pointer;transition:.15s}
+.drop:hover,.drop.over,.drop:focus-within{border-color:var(--a);color:var(--text)}
+.drop input{position:absolute;opacity:0;pointer-events:none}
+.fx{margin-top:18px}
+.ctl{padding:14px 0;border-top:1px solid var(--edge)}
+.ctl:first-of-type{border-top:0;padding-top:0}
+.ctl .top{display:flex;justify-content:space-between;align-items:baseline}
+.ctl label{font-weight:600}
+.ctl output{font:800 34px "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--a)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.chip{flex:none;border:1px solid var(--edge);background:var(--glass);color:var(--text);border-radius:999px;padding:9px 16px;font:inherit;font-size:14px;cursor:pointer}
+.chip:hover{border-color:var(--a)}
+.dl{width:100%;margin-top:18px;padding:16px;font-size:16px}
+.status{min-height:22px;margin-top:10px;text-align:center;color:var(--muted);font-size:14px}
+.note{margin-top:10px;font-size:13px;color:var(--muted)}
+:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.card{border-radius:18px;backdrop-filter:none;-webkit-backdrop-filter:none}
+.cover{background:#161616;box-shadow:none;border-radius:12px}
+.cover span{opacity:.25}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="logo">lowend</div></header>
+
+  <div class="grid">
+    <section class="card" aria-label="Плеер">
+      <div class="cover" id="cover"><img id="coverImg" alt="Обложка"><span>♪</span></div>
+      <canvas id="viz" width="400" height="56" aria-hidden="true"></canvas>
+      <div class="title" id="name">Выбери трек справа</div>
+      <div class="hint" id="sub">Здесь появится обложка и визуализация</div>
+      <div class="bar">
+        <button class="play" id="play" disabled aria-label="Играть">▶</button>
+        <div class="seekbox">
+          <input type="range" id="seek" min="0" max="1000" value="0" disabled aria-label="Перемотка">
+          <div class="time"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+        </div>
+      </div>
+    </section>
+
+    <div>
+      <section class="card" aria-label="Источник">
+        <h2>1. Трек</h2>
+        <div class="src">
+          <input type="text" id="link" placeholder="Ссылка на трек из Spotify" inputmode="url" autocomplete="off">
+          <button class="btn ghost" id="fetch">Найти</button>
+        </div>
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="audio/*">
+          Выбери аудиофайл или перетащи сюда
+        </label>
+        <p class="note">Spotify не отдаёт сам звук, поэтому по ссылке подтягиваются только обложка и название. Саму песню загрузи файлом.</p>
+      </section>
+
+      <section class="card fx" aria-label="Эффекты">
+        <h2>2. Звук</h2>
+        <div class="chips">
+          <button class="chip" data-p="0.85,6,35">Slowed + reverb</button>
+          <button class="chip" data-p="1.25,4,0">Speed up</button>
+          <button class="chip" data-p="1,14,0">Bass boost</button>
+          <button class="chip" data-p="0.8,10,55">Дождливый</button>
+          <button class="chip" data-p="1,0,0">Сбросить</button>
+        </div>
+        <div style="height:16px"></div>
+        <div class="ctl"><div class="top"><label for="speed">Скорость</label><output id="speedO">1.00x</output></div>
+          <input type="range" id="speed" min="0.5" max="1.5" step="0.01" value="1"></div>
+        <div class="ctl"><div class="top"><label for="bass">Бас</label><output id="bassO">+0 dB</output></div>
+          <input type="range" id="bass" min="0" max="20" step="1" value="0"></div>
+        <div class="ctl"><div class="top"><label for="reverb">Реверб</label><output id="reverbO">0%</output></div>
+          <input type="range" id="reverb" min="0" max="100" step="1" value="0"></div>
+        <button class="btn dl" id="dl" disabled>Скачать WAV</button>
+        <p class="status" id="status" role="status"></p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const S = { speed: 1, bass: 0, reverb: 0 };
+let file = null, ctx = null, nodes = null, analyser = null, title = '';
+const audio = new Audio();
+audio.preservesPitch = audio.mozPreservesPitch = audio.webkitPreservesPitch = false;
+
+const fill = el => el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min) * 100 + '%');
+const status = m => $('status').textContent = m || '';
+
+const fmt = t => isFinite(t) ? Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0') : '0:00';
+
+/* ---------- аудио-цепочка ---------- */
+function makeImpulse(c, sec = 2.5, decay = 2.5) {
+  const n = Math.floor(c.sampleRate * sec), b = c.createBuffer(2, n, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay); }
+  return b;
+}
+function buildChain(c, src, dest) {
+  const bass = c.createBiquadFilter(); bass.type = 'lowshelf'; bass.frequency.value = 90;
+  const conv = c.createConvolver(); conv.buffer = makeImpulse(c);
+  const dry = c.createGain(), wet = c.createGain(), lim = c.createDynamicsCompressor();
+  lim.threshold.value = -4; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .003; lim.release.value = .15;
+  src.connect(bass); bass.connect(dry); bass.connect(conv); conv.connect(wet);
+  dry.connect(lim); wet.connect(lim); lim.connect(dest);
+  return { bass, dry, wet, lim };
+}
+function applySettings(n) {
+  n.bass.gain.value = S.bass;
+  n.wet.gain.value = S.reverb / 100 * .9;
+  n.dry.gain.value = 1 - S.reverb / 100 * .35;
+}
+function initAudio() {
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  nodes = buildChain(ctx, ctx.createMediaElementSource(audio), ctx.destination);
+  analyser = ctx.createAnalyser(); analyser.fftSize = 128; analyser.smoothingTimeConstant = .8;
+  nodes.lim.connect(analyser);
+  applySettings(nodes);
+}
+
+/* ---------- загрузка трека ---------- */
+function setTitle(t, sub) { title = t; $('name').textContent = t; if (sub !== undefined) $('sub').textContent = sub; }
+function loadFile(f) {
+  if (!f || !f.type.startsWith('audio/')) return status('Нужен аудиофайл: mp3, wav, m4a или ogg.');
+  file = f; audio.src = URL.createObjectURL(f); audio.playbackRate = S.speed;
+  if (!$('cover').classList.contains('has') || !title) setTitle(f.name.replace(/\.[^.]+$/, ''), 'Файл загружен');
+  else $('sub').textContent = 'Файл: ' + f.name;
+  ['play', 'seek', 'dl'].forEach(id => $(id).disabled = false);
+  status('');
+}
+$('file').onchange = e => loadFile(e.target.files[0]);
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+
+/* ---------- Spotify: обложка и название ---------- */
+$('fetch').onclick = async () => {
+  const url = $('link').value.trim();
+  if (!/open\.spotify\.com\/(intl-[a-z]+\/)?track\//.test(url)) return status('Вставь ссылку вида open.spotify.com/track/…');
+  status('Ищу трек…');
+  try {
+    const r = await fetch('https://open.spotify.com/oembed?url=' + encodeURIComponent(url));
+    if (!r.ok) throw 0;
+    const j = await r.json();
+    setTitle(j.title, 'Из Spotify. Теперь загрузи файл песни');
+    $('coverImg').src = j.thumbnail_url; $('cover').classList.add('has');
+    status(file ? '' : 'Обложка найдена. Осталось загрузить аудиофайл.');
+  } catch (e) { status('Не удалось найти трек. Проверь ссылку.'); }
+};
+$('link').addEventListener('keydown', e => e.key === 'Enter' && $('fetch').click());
+
+/* ---------- плеер ---------- */
+$('play').onclick = async () => { initAudio(); await ctx.resume(); audio.paused ? audio.play() : audio.pause(); };
+audio.onplay = () => $('play').textContent = '❚❚';
+audio.onpause = audio.onended = () => $('play').textContent = '▶';
+$('seek').oninput = e => { fill(e.target); if (audio.duration) audio.currentTime = e.target.value / 1000 * audio.duration; };
+audio.ontimeupdate = () => {
+  if (audio.duration) { $('seek').value = audio.currentTime / audio.duration * 1000; fill($('seek')); }
+  $('cur').textContent = fmt(audio.currentTime); $('dur').textContent = fmt(audio.duration);
+};
+
+/* ---------- настройки ---------- */
+function setSettings(speed, bass, reverb) {
+  S.speed = +speed; S.bass = +bass; S.reverb = +reverb;
+  $('speed').value = S.speed; $('bass').value = S.bass; $('reverb').value = S.reverb;
+  ['speed', 'bass', 'reverb'].forEach(id => fill($(id)));
+  $('speedO').textContent = S.speed.toFixed(2) + 'x';
+  $('bassO').textContent = '+' + S.bass + ' dB';
+  $('reverbO').textContent = S.reverb + '%';
+  audio.playbackRate = S.speed;
+  if (nodes) applySettings(nodes);
+}
+['speed', 'bass', 'reverb'].forEach(id => $(id).oninput = () => setSettings($('speed').value, $('bass').value, $('reverb').value));
+document.querySelectorAll('.chip').forEach(b => b.onclick = () => setSettings(...b.dataset.p.split(',')));
+setSettings(1, 0, 0); fill($('seek'));
+
+/* ---------- визуализация: бары + пульс обложки от баса ---------- */
+const vz = $('viz'), vg = vz.getContext('2d');
+(function draw() {
+  requestAnimationFrame(draw);
+  vg.clearRect(0, 0, vz.width, vz.height);
+  const a = getComputedStyle(document.documentElement).getPropertyValue('--a').trim() || '#ff7ab8';
+  let low = 0;
+  if (analyser && !audio.paused) {
+    const d = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(d);
+    const n = 32, w = vz.width / n;
+    for (let i = 0; i < n; i++) {
+      const h = Math.max(3, d[i] / 255 * vz.height);
+      vg.fillStyle = a; vg.globalAlpha = .9;
+      vg.beginPath(); vg.roundRect(i * w + 2, vz.height - h, w - 4, h, 3); vg.fill();
+    }
+    low = (d[0] + d[1] + d[2] + d[3]) / (4 * 255);
+  } else {
+    for (let i = 0; i < 32; i++) { vg.fillStyle = a; vg.globalAlpha = .25; vg.fillRect(i * (vz.width / 32) + 2, vz.height - 3, vz.width / 32 - 4, 3); }
+  }
+  $('cover').style.transform = `scale(${1 + low * low * .06})`;
+})();
+
+/* ---------- скачивание WAV ---------- */
+function toWav(buf) {
+  const ch = buf.numberOfChannels, len = buf.length, o = new DataView(new ArrayBuffer(44 + len * ch * 2));
+  const w = (p, s) => [...s].forEach((c, i) => o.setUint8(p + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); o.setUint32(4, 36 + len * ch * 2, true); w(8, 'WAVEfmt ');
+  o.setUint32(16, 16, true); o.setUint16(20, 1, true); o.setUint16(22, ch, true);
+  o.setUint32(24, buf.sampleRate, true); o.setUint32(28, buf.sampleRate * ch * 2, true);
+  o.setUint16(32, ch * 2, true); o.setUint16(34, 16, true); w(36, 'data'); o.setUint32(40, len * ch * 2, true);
+  const data = [...Array(ch).keys()].map(i => buf.getChannelData(i)); let p = 44;
+  for (let i = 0; i < len; i++) for (let c = 0; c < ch; c++) { const s = Math.max(-1, Math.min(1, data[c][i])); o.setInt16(p, s < 0 ? s * 0x8000 : s * 0x7fff, true); p += 2; }
+  return new Blob([o], { type: 'audio/wav' });
+}
+$('dl').onclick = async () => {
+  $('dl').disabled = true; status('Обрабатываю трек…');
+  try {
+    const tmp = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = await tmp.decodeAudioData(await file.arrayBuffer()); tmp.close();
+    const tail = S.reverb > 0 ? 2.5 : 0;
+    const off = new OfflineAudioContext(2, Math.ceil((buf.duration / S.speed + tail) * buf.sampleRate), buf.sampleRate);
+    const src = off.createBufferSource(); src.buffer = buf; src.playbackRate.value = S.speed;
+    applySettings(buildChain(off, src, off.destination)); src.start();
+    const blob = toWav(await off.startRendering());
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = (title || 'track') + ' (lowend).wav'; a.click();
+    status('Готово, файл скачан.');
+  } catch (e) { status('Не получилось обработать файл. Попробуй другой формат.'); }
+  $('dl').disabled = false;
+};
+</script>
+</body>
+</html>
