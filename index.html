@@ -93,11 +93,17 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 #notice{position:fixed;top:12px;left:12px;right:12px;z-index:90;padding:14px 16px;border-radius:16px;background:#fff;color:#000;font-weight:600;box-shadow:0 10px 40px #000a;cursor:pointer}
 #notice[hidden]{display:none}
 .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--a);color:var(--onA);margin-left:6px;font-weight:600}
+
+.av{width:36px;height:36px;border-radius:50%;background:#1a1a1a center/cover no-repeat;border:1px solid var(--edge);display:grid;place-items:center;font:800 15px "Bricolage Grotesque",sans-serif;color:var(--text);cursor:pointer;flex:none;padding:0}
+.av.big{width:120px;height:120px;font-size:48px;margin:0 auto;cursor:default}
+#profile{position:fixed;inset:0;z-index:95;background:#000c;display:flex;align-items:center;justify-content:center;padding:20px}
+#profile[hidden]{display:none}
+#profile .btn{width:100%;margin-top:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header><div class="logo">lowend</div><span class="hint" id="online"></span></header>
+  <header><div class="logo">lowend</div><div style="display:flex;align-items:center;gap:12px"><span class="hint" id="online"></span><button class="av" id="avBtn" aria-label="Профиль"></button></div></header>
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
@@ -187,6 +193,20 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 </div>
 
 <div id="notice" hidden></div>
+
+<div id="profile" hidden>
+  <div class="card" style="width:min(340px,100%);text-align:center">
+    <div class="av big" id="pAv"></div>
+    <div class="title" id="pName" style="text-align:center;margin-top:14px"></div>
+    <div class="hint" id="pRole"></div>
+    <input type="file" id="avFile" accept="image/*" hidden>
+    <button class="btn" id="avPick" style="margin-top:16px">Сменить фото</button>
+    <button class="btn ghost" id="avDel">Убрать фото</button>
+    <button class="btn ghost" id="pNick">Сменить ник</button>
+    <button class="btn ghost" id="pOut">Выйти</button>
+    <button class="btn ghost" id="pClose">Закрыть</button>
+  </div>
+</div>
 
 <div id="welcome">
   <div class="w-sub">добро пожаловать в</div>
@@ -515,13 +535,13 @@ function showNotice(text) {
 $('notice').onclick = () => $('notice').hidden = true;
 function onMsg(m) {
   if (m.t === 'count') { const x = 'онлайн: ' + m.n; $('online').textContent = x; $('onlineW').textContent = 'Сейчас на сайте: ' + m.n; }
-  else if (m.t === 'me') { me = m; if (m.role === 'owner' && pendingKey) { try { localStorage.setItem('lowend_okey', pendingKey); } catch (e) {} pendingKey = ''; } $('admin').hidden = m.role === 'user'; $('ownerLink').parentElement.hidden = m.role === 'owner'; }
+  else if (m.t === 'me') { me = m; paintAvs(); if (m.role === 'owner' && pendingKey) { try { localStorage.setItem('lowend_okey', pendingKey); } catch (e) {} pendingKey = ''; } $('admin').hidden = m.role === 'user'; $('ownerLink').parentElement.hidden = m.role === 'owner'; }
   else if (m.t === 'users') renderUsers(m.list);
   else if (m.t === 'notice') showNotice((m.from ? m.from + ': ' : '') + m.text);
   else if (m.t === 'kicked') { kicked = true; showNotice('Тебя отключили на 10 минут.'); }
   else if (m.t === 'authfail') { if (pendingKey) { showNotice('Неверный ключ владельца.'); pendingKey = ''; } else { try { localStorage.removeItem('lowend_okey'); } catch (e) {} } }
   else if (m.t === 'loggedout') wipeAndReload();
-  else if (m.t === 'nickTaken') { showNotice('Этот ник занят, ты вошёл как гость. Выбери другой: «сменить ник» внизу.'); nick = ''; try { localStorage.removeItem('lowend_nick'); } catch (e) {} $('nick').value = ''; }
+  else if (m.t === 'nickTaken') { showNotice('Этот ник занят, ты вошёл как гость. Выбери другой: «сменить ник» внизу.'); nick = ''; try { localStorage.removeItem('lowend_nick'); } catch (e) {} $('nick').value = ''; paintAvs(); }
 }
 const ROLE = { owner: 'владелец', admin: 'админ', user: '' };
 function renderUsers(list) {
@@ -552,11 +572,11 @@ $('ownerLink').onclick = e => {
 $('enter').onclick = () => {
   nick = $('nick').value.trim().slice(0, 20);
   try { localStorage.setItem('lowend_nick', nick); } catch (e) {}
-  entered = true; try { localStorage.setItem('lowend_in', '1'); } catch (e) {} hello();
+  entered = true; try { localStorage.setItem('lowend_in', '1'); } catch (e) {} hello(); paintAvs();
   $('welcome').classList.add('out');
 };
 function wipeAndReload() {
-  ['lowend_token', 'lowend_nick', 'lowend_in', 'lowend_okey'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  ['lowend_token', 'lowend_nick', 'lowend_in', 'lowend_okey', 'lowend_avatar'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
   location.reload();
 }
 $('logoutLink').onclick = e => {
@@ -570,9 +590,44 @@ $('nickLink').onclick = e => {
   e.preventDefault();
   const n = prompt('Новый ник:', nick); if (n === null) return;
   nick = n.trim().slice(0, 20); try { localStorage.setItem('lowend_nick', nick); } catch (err) {}
-  $('nick').value = nick; hello();
+  $('nick').value = nick; hello(); paintAvs();
 };
 $('nick').addEventListener('keydown', e => e.key === 'Enter' && $('enter').click());
+/* ---------- профиль и аватарка (фото хранится на этом устройстве) ---------- */
+let avatar = ''; try { avatar = localStorage.getItem('lowend_avatar') || ''; } catch (e) {}
+function paintAv(el) {
+  if (avatar) { el.style.backgroundImage = 'url("' + avatar + '")'; el.textContent = ''; }
+  else { el.style.backgroundImage = ''; el.textContent = ((me.name || nick || '').trim()[0] || '♪').toUpperCase(); }
+}
+function paintAvs() { paintAv($('avBtn')); paintAv($('pAv')); }
+function openProfile() {
+  paintAvs();
+  $('pName').textContent = me.name || nick || 'гость';
+  $('pRole').textContent = ROLE[me.role] || 'пользователь';
+  $('profile').hidden = false;
+}
+$('avBtn').onclick = openProfile;
+$('pClose').onclick = () => $('profile').hidden = true;
+$('profile').onclick = e => { if (e.target === $('profile')) $('profile').hidden = true; };
+$('pNick').onclick = () => { $('profile').hidden = true; $('nickLink').click(); };
+$('pOut').onclick = () => { $('profile').hidden = true; $('logoutLink').click(); };
+$('avPick').onclick = () => $('avFile').click();
+$('avFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const url = URL.createObjectURL(f);
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const n = 256, c = document.createElement('canvas'); c.width = c.height = n;
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, n, n);
+    URL.revokeObjectURL(url);
+    avatar = c.toDataURL('image/jpeg', .85);
+    try { localStorage.setItem('lowend_avatar', avatar); } catch (err) { showNotice('Не удалось сохранить фото в этом браузере.'); }
+    paintAvs();
+  } catch (err) { showNotice('Не получилось открыть картинку. Попробуй JPG или PNG.'); }
+};
+$('avDel').onclick = () => { avatar = ''; try { localStorage.removeItem('lowend_avatar'); } catch (e) {} paintAvs(); };
+paintAvs();
 /* ---------- приложение (PWA) ---------- */
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('/sw.js').catch(() => {});
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
