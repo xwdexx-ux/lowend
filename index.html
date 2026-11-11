@@ -73,8 +73,8 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
 .card{border-radius:18px;backdrop-filter:none;-webkit-backdrop-filter:none}
-.cover{background:#161616;box-shadow:none;border-radius:12px}
-.cover span{opacity:.25;width:46%;height:46%;display:block}
+.cover{background:#000;box-shadow:none;border-radius:12px}
+.cover span{opacity:1;color:#fff;width:52%;height:52%;display:block}
 .item{display:flex;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--edge)}
 .item:first-child{border-top:0}
 .item .meta{flex:1;min-width:0}
@@ -105,7 +105,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 #langBtnW{position:absolute;top:14px;right:14px}
 #welcome{position:fixed}
 :root[data-theme=light]{--a:#000;--b:#555;--ink:#fff;--text:#000;--muted:#666;--glass:#f3f3f3;--edge:#dadada;--track:#d2d2d2;--thumb:#000;--onA:#fff;--playbg:#000;--playfg:#fff;--field:#fff;color-scheme:light}
-[data-theme=light] .cover{background:#e8e8e8}
+[data-theme=light] .cover{background:#000}
 [data-theme=light] .av{background:#e8e8e8}
 [data-theme=light] .src input::placeholder,[data-theme=light] #nick::placeholder{color:#00000066}
 [data-theme=light] #welcome{background:radial-gradient(ellipse at 50% 28%,#fff,#e4e4e4 70%)}
@@ -129,6 +129,12 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .ctls input[type=range]::-webkit-slider-thumb{width:30px;height:30px;margin-top:-9px}
 .ctls input[type=range]::-moz-range-track,.ctls input[type=range]::-moz-range-progress{height:12px;border-radius:12px}
 .ctls input[type=range]::-moz-range-thumb{width:30px;height:30px}
+.pdemo{aspect-ratio:16/9;background:#000;border-radius:12px;position:relative;overflow:hidden;margin:12px 0;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;font:300 clamp(13px,3.8vw,18px)/1.05 -apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.02em}
+.pdemo i{position:absolute;left:0;bottom:0;height:3px;width:42%;background:#fff}
+.plist{margin:8px 0 12px 18px;color:var(--muted);font-size:14px}
+.plist li{margin-top:4px}
+.alink{display:block;text-align:center;text-decoration:none}
+.alink[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -137,7 +143,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
-      <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="currentColor" aria-hidden="true"><rect x="6" y="26" width="4" height="12" rx="2"/><rect x="12" y="22" width="4" height="20" rx="2"/><rect x="18" y="18" width="4" height="28" rx="2"/><rect x="24" y="22" width="4" height="20" rx="2"/><rect x="30" y="12" width="4" height="40" rx="2"/><rect x="36" y="18" width="4" height="28" rx="2"/><rect x="42" y="24" width="4" height="16" rx="2"/><rect x="48" y="26" width="4" height="12" rx="2"/><rect x="54" y="28" width="4" height="8" rx="2"/></svg></span><img id="coverImg" alt=""></div>
+      <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="currentColor" aria-hidden="true"><rect x="1.5" y="26.0" width="5" height="12" rx="2.5"/><rect x="8.5" y="21.0" width="5" height="22" rx="2.5"/><rect x="15.5" y="16.0" width="5" height="32" rx="2.5"/><rect x="22.5" y="11.0" width="5" height="42" rx="2.5"/><rect x="29.5" y="4.0" width="5" height="56" rx="2.5"/><rect x="36.5" y="11.0" width="5" height="42" rx="2.5"/><rect x="43.5" y="16.0" width="5" height="32" rx="2.5"/><rect x="50.5" y="21.0" width="5" height="22" rx="2.5"/><rect x="57.5" y="26.0" width="5" height="12" rx="2.5"/></svg></span><img id="coverImg" alt=""></div>
       <canvas id="viz" width="400" height="56" aria-hidden="true"></canvas>
       <div class="title" id="name"></div>
       <div class="hint" id="sub"></div>
@@ -218,6 +224,17 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
         <div id="users"></div>
         <div class="src" style="margin-top:12px"><input type="text" id="noticeText" maxlength="200" data-ph="noticePh" placeholder="Message to everyone"><button class="btn ghost sm" id="noticeBtn" data-i="send"></button></div>
       </section>
+      <section class="card fx" id="premCard" aria-label="Premium">
+        <h2 data-i="premH"></h2>
+        <p class="hint" id="premState"></p>
+        <div class="pdemo"><span>lowend<br>your text here</span><i></i></div>
+        <p class="hint" data-i="premWhat"></p>
+        <ul class="plist"><li data-i="premL1"></li><li data-i="premL2"></li><li data-i="premL3"></li><li data-i="premL4"></li></ul>
+        <button class="btn" id="premBuy" style="width:100%"></button>
+        <a class="btn ghost alink" id="premLink" hidden target="_blank" rel="noopener" style="margin-top:8px" data-i="premOpenBot"></a>
+        <button class="btn ghost" id="premStudio" hidden style="width:100%;margin-top:8px" data-i="studioBtn"></button>
+        <p class="status" id="premStatus" role="status"></p>
+      </section>
       <section class="card fx" id="appCard" hidden aria-label="Приложение">
         <h2 data-i="appH"></h2>
         <p class="hint" id="appHint" data-i="appHint"></p>
@@ -291,7 +308,12 @@ ru: {
   iosOther:'Открой сайт в Safari: нажми «Поделиться» → «На экран Домой».',
   iosSafari:'В нижней панели Safari нажми «Поделиться» (квадрат со стрелкой; на новых iPhone он внутри меню «•••» справа внизу), прокрути список вниз и выбери «На экран Домой» → «Добавить».',
   otherInstall:'В меню браузера выбери «Установить приложение» или «Добавить на главный экран».',
-  studioOnly:'Студия доступна только админам и владельцу.'
+  studioOnly:'Студия доступна с премиумом.',
+  premH:'Премиум', premPrice:'50 ⭐ Telegram Stars на 30 дней', premUntil:'Премиум активен до ', premBuy:'Купить премиум · 50 ⭐', premExtend:'Продлить на 30 дней · 50 ⭐',
+  premWhat:'Премиум открывает Студию: делаешь видео, где твой текст идёт поверх любимого трека. Как в примере выше: чёрный фон, тонкий текст, плавное появление и полоска прогресса.',
+  premL1:'Видео 16:9, 9:16 и 1:1, вплоть до 4K', premL2:'Свой текст, шрифт, цвета и размер', premL3:'Выбор отрезка трека и затухание звука в конце', premL4:'Пресеты стиля и ИИ-помощник: опиши словами, и он всё настроит',
+  premOpenBot:'Открыть бота в Telegram', premGo:'Оплати 50 ⭐ в боте и вернись сюда: премиум включится сам.', premDone:'Премиум включён. Студия открыта.', premFail:'Не получилось открыть оплату, попробуй позже.',
+  logoutPrem:'Внимание: премиум привязан к этому устройству и пропадёт после выхода.'
 },
 en: {
   pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
@@ -320,7 +342,12 @@ en: {
   iosOther:'Open the site in Safari: tap “Share” → “Add to Home Screen”.',
   iosSafari:'In the Safari bottom bar tap “Share” (square with an arrow; on newer iPhones it is inside the “•••” menu at the bottom right), scroll down and choose “Add to Home Screen” → “Add”.',
   otherInstall:'In the browser menu choose “Install app” or “Add to Home screen”.',
-  studioOnly:'The studio is only available to admins and the owner.'
+  studioOnly:'The studio is available with premium.',
+  premH:'Premium', premPrice:'50 ⭐ Telegram Stars for 30 days', premUntil:'Premium active until ', premBuy:'Buy premium · 50 ⭐', premExtend:'Extend for 30 days · 50 ⭐',
+  premWhat:'Premium unlocks the Studio: make videos with your own text over your favorite track. Like the example above: black background, thin text, a soft fade-in and a progress bar.',
+  premL1:'16:9, 9:16 and 1:1 video, up to 4K', premL2:'Your own text, font, colors and size', premL3:'Pick a part of the track and fade the sound out at the end', premL4:'Style presets and an AI helper: describe it in words and it sets everything up',
+  premOpenBot:'Open the bot in Telegram', premGo:'Pay 50 ⭐ in the bot and come back: premium turns on by itself.', premDone:'Premium is on. The studio is open.', premFail:'Could not open the payment, try again later.',
+  logoutPrem:'Warning: premium is tied to this device and will be lost after logging out.'
 }};
 let lang = 'en'; try { if (localStorage.getItem('lowend_lang') === 'ru') lang = 'ru'; } catch (e) {} // по умолчанию всегда английский
 const t = k => (LANG[lang] && LANG[lang][k]) || LANG.en[k] || k;
@@ -341,6 +368,7 @@ function applyLang() {
   else $('sub').textContent = t('len') + fmt(buffer.duration);
   if (typeof onlineN === 'number') showOnline();
   applyTheme();
+  if (typeof renderPrem === 'function') renderPrem();
   if (typeof renderLib === 'function') renderLib();
   if (typeof lastUsers !== 'undefined' && lastUsers) renderUsers(lastUsers);
   if (typeof me !== 'undefined') { $('pRole').textContent = roleName(me.role); }
@@ -765,7 +793,7 @@ function showNotice(text) {
 $('notice').onclick = () => $('notice').hidden = true;
 function onMsg(m) {
   if (m.t === 'count') { onlineN = m.n; showOnline(); }
-  else if (m.t === 'me') { me = m; paintAvs(); if (m.role === 'owner' && pendingKey) { try { localStorage.setItem('lowend_okey', pendingKey); } catch (e) {} pendingKey = ''; } $('admin').hidden = m.role === 'user'; $('ownerLink').parentElement.hidden = m.role === 'owner'; }
+  else if (m.t === 'me') { me = m; paintAvs(); if (m.role === 'owner' && pendingKey) { try { localStorage.setItem('lowend_okey', pendingKey); } catch (e) {} pendingKey = ''; } $('admin').hidden = m.role === 'user'; renderPrem(); $('ownerLink').parentElement.hidden = m.role === 'owner'; }
   else if (m.t === 'users') { lastUsers = m.list; renderUsers(m.list); }
   else if (m.t === 'notice') showNotice((m.from ? m.from + ': ' : '') + m.text);
   else if (m.t === 'kicked') { kicked = true; showNotice(t('kicked')); }
@@ -813,7 +841,7 @@ function wipeAndReload() {
 $('logoutLink').onclick = e => {
   e.preventDefault();
   if (!ws || ws.readyState !== 1) return showNotice(t('noConn2'));
-  if (!confirm(t('logoutAsk'))) return;
+  if (!confirm(t('logoutAsk') + (prem.on ? '\n\n' + t('logoutPrem') : ''))) return;
   kicked = true; // не переподключаться
   wsSend({ t: 'logout' }); setTimeout(wipeAndReload, 3000);
 };
@@ -876,7 +904,45 @@ $('installBtn2').onclick = async () => {
     : t('otherInstall');
 };
 
-// Студия грузится с сервера только для админов и владельца
+/* ---------- премиум (Telegram Stars) ---------- */
+let prem = { on: false, until: 0 }, premWait = -1, premPoll = 0;
+const premStat = m => $('premStatus').textContent = m || '';
+const premDate = ms => new Date(ms).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB');
+function renderPrem() {
+  $('premCard').hidden = me.role !== 'user'; // админам и владельцу премиум не нужен
+  $('premState').textContent = prem.on ? t('premUntil') + premDate(prem.until) : t('premPrice');
+  $('premBuy').textContent = prem.on ? t('premExtend') : t('premBuy');
+  $('premStudio').hidden = !prem.on;
+}
+async function premCall(p) {
+  const r = await fetch(p, { method: 'POST', headers: { 'x-token': tok } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error('fail'); e.code = r.status; throw e; }
+  return j;
+}
+async function refreshPrem() {
+  try {
+    const j = await premCall('/api/premium');
+    prem = { on: !!j.premium, until: j.until || 0 }; renderPrem();
+    if (premWait >= 0 && prem.until > premWait) { premWait = -1; clearInterval(premPoll); $('premLink').hidden = true; premStat(t('premDone')); }
+  } catch (e) {}
+}
+$('premBuy').onclick = async () => {
+  const b = $('premBuy'); b.disabled = true; premStat('');
+  try {
+    const j = await premCall('/api/premium/code');
+    premWait = prem.until; clearInterval(premPoll);
+    const end = Date.now() + 180000;
+    premPoll = setInterval(() => { if (Date.now() > end) { clearInterval(premPoll); premWait = -1; } else refreshPrem(); }, 4000);
+    $('premLink').href = j.link; $('premLink').hidden = false; premStat(t('premGo'));
+  } catch (e) { premStat(e.code === 429 ? t('tooOften') : t('premFail')); }
+  b.disabled = false;
+};
+$('premStudio').onclick = () => $('studioBtn').onclick();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshPrem(); });
+renderPrem(); refreshPrem();
+
+// Студия грузится с сервера только для админов, владельца и премиума
 $('studioBtn').onclick = async () => {
   try {
     if (!window.openStudio) {
