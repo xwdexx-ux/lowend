@@ -82,8 +82,9 @@
   }
   function applyAI(j) {
     if (typeof j.text === 'string') d.text = j.text.slice(0, 200);
-    if (FONTS[j.font]) d.font = j.font;
-    if (SIZE_RES[j.size]) d.res = SIZE_RES[j.size];
+    const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    if (has(FONTS, j.font)) d.font = j.font;
+    if (has(RES, j.resolution)) d.res = j.resolution; else if (has(SIZE_RES, j.size)) d.res = SIZE_RES[j.size];
     if (+j.duration) d.dur = Math.max(5, Math.min(300, Math.round(+j.duration)));
     if (/^#[0-9a-f]{6}$/i.test(j.color)) d.color = j.color;
     if (/^#[0-9a-f]{6}$/i.test(j.bg)) d.bg = j.bg;
