@@ -56,7 +56,7 @@ let BOT_USER = String(process.env.BOT_USERNAME || '').replace(/^@/, '');
 const BASE_URL = (process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
 const SUPPORT = process.env.SUPPORT_CONTACT || '';   // например @username: кому писать при проблемах с оплатой
 const OWNER_TG_ID = process.env.OWNER_TG_ID || '';   // твой Telegram id: бот будет присылать уведомления об оплатах (необязательно)
-const PREMIUM_STARS = 50, PREMIUM_DAYS = 30, DAY = 86400000;
+const PREMIUM_STARS = 150, PREMIUM_DAYS = 30, DAY = 86400000;
 const PREM_FILE = path.join(__dirname, 'premium.json');
 let premLocal = {}; // запасной вариант без Redis (на Render файл сбрасывается)
 try { premLocal = JSON.parse(fs.readFileSync(PREM_FILE, 'utf8')); } catch (e) {}
