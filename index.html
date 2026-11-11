@@ -180,7 +180,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
         <div id="users"></div>
         <div class="src" style="margin-top:12px"><input type="text" id="noticeText" maxlength="200" placeholder="Сообщение всем на сайте"><button class="btn ghost sm" id="noticeBtn">Отправить</button></div>
       </section>
-      <p class="hint" style="text-align:center;margin-top:22px"><a href="#" id="nickLink" style="color:inherit">сменить ник</a></p>
+      <p class="hint" style="text-align:center;margin-top:22px"><a href="#" id="nickLink" style="color:inherit">сменить ник</a> · <a href="#" id="logoutLink" style="color:inherit">выйти</a></p>
       <p class="hint" style="text-align:center;margin-top:10px"><a href="#" id="ownerLink" style="color:inherit">вход для владельца</a></p>
     </div>
   </div>
@@ -520,6 +520,7 @@ function onMsg(m) {
   else if (m.t === 'notice') showNotice((m.from ? m.from + ': ' : '') + m.text);
   else if (m.t === 'kicked') { kicked = true; showNotice('Тебя отключили на 10 минут.'); }
   else if (m.t === 'authfail') { if (pendingKey) { showNotice('Неверный ключ владельца.'); pendingKey = ''; } else { try { localStorage.removeItem('lowend_okey'); } catch (e) {} } }
+  else if (m.t === 'loggedout') wipeAndReload();
   else if (m.t === 'nickTaken') { showNotice('Этот ник занят, ты вошёл как гость. Выбери другой: «сменить ник» внизу.'); nick = ''; try { localStorage.removeItem('lowend_nick'); } catch (e) {} $('nick').value = ''; }
 }
 const ROLE = { owner: 'владелец', admin: 'админ', user: '' };
@@ -553,6 +554,17 @@ $('enter').onclick = () => {
   try { localStorage.setItem('lowend_nick', nick); } catch (e) {}
   entered = true; try { localStorage.setItem('lowend_in', '1'); } catch (e) {} hello();
   $('welcome').classList.add('out');
+};
+function wipeAndReload() {
+  ['lowend_token', 'lowend_nick', 'lowend_in', 'lowend_okey'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  location.reload();
+}
+$('logoutLink').onclick = e => {
+  e.preventDefault();
+  if (!ws || ws.readyState !== 1) return showNotice('Нет связи с сервером, попробуй позже.');
+  if (!confirm('Выйти из аккаунта? Ник освободится, права админа и владельца на этом устройстве сбросятся. Библиотека треков останется.')) return;
+  kicked = true; // не переподключаться
+  wsSend({ t: 'logout' }); setTimeout(wipeAndReload, 3000);
 };
 $('nickLink').onclick = e => {
   e.preventDefault();

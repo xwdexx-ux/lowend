@@ -34,6 +34,19 @@ async function claimNick(nn, h) { // true: ник твой, false: занят д
   try { fs.writeFileSync(NICKS_FILE, JSON.stringify(nicksLocal)); } catch (e) {}
   return true;
 }
+async function releaseNick(h) { // выход из аккаунта: ник снова свободен
+  if (UP_URL && UP_TOKEN) {
+    try {
+      const nn = await redis(['GET', 'hnick:' + h]);
+      if (nn && (await redis(['GET', 'nick:' + nn])) === h) await redis(['DEL', 'nick:' + nn]);
+      await redis(['DEL', 'hnick:' + h]);
+    } catch (e) { console.log('nick db error:', e.message); }
+    return;
+  }
+  let ch = false;
+  for (const k of Object.keys(nicksLocal)) if (nicksLocal[k] === h) { delete nicksLocal[k]; ch = true; }
+  if (ch) try { fs.writeFileSync(NICKS_FILE, JSON.stringify(nicksLocal)); } catch (e) {}
+}
 const hash = t => crypto.createHash('sha256').update(String(t)).digest('hex');
 const keyOk = k => !!OWNER_KEY && typeof k === 'string' && k.length > 0 && crypto.timingSafeEqual(Buffer.from(hash(k)), Buffer.from(hash(OWNER_KEY)));
 const SYS = 'Ты помощник видеостудии сайта lowend. Верни ТОЛЬКО JSON без пояснений и без markdown с полями: ' +
@@ -194,6 +207,11 @@ wss.on('connection', ws => {
       return broadcast();
     }
     if (!c) return;
+    if (m.t === 'logout') {
+      await releaseNick(c.h);
+      if (roles[c.h]) { delete roles[c.h]; saveRoles(); }
+      clients.delete(ws); send(ws, { t: 'loggedout' }); return broadcast();
+    }
     const role = roleOf(c.h);
 
     if (m.t === 'auth') { // вход владельца по ключу из переменной OWNER_KEY
