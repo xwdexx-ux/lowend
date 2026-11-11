@@ -74,7 +74,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 
 .card{border-radius:18px;backdrop-filter:none;-webkit-backdrop-filter:none}
 .cover{background:#161616;box-shadow:none;border-radius:12px}
-.cover span{opacity:.25}
+.cover span{opacity:.25;width:46%;height:46%;display:block}
 .item{display:flex;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--edge)}
 .item:first-child{border-top:0}
 .item .meta{flex:1;min-width:0}
@@ -115,6 +115,20 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 [data-theme=light] #nick{background:#fff}
 [data-theme=light] input[type=range]::-webkit-slider-thumb{box-shadow:0 2px 8px #0004}
 [data-theme=light] .cover{box-shadow:none}
+
+.ctls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ctls .ctl,.ctls .ctl:first-of-type{border:1px solid var(--edge);border-radius:16px;padding:12px 14px 6px}
+.ctls .ctl.full{grid-column:1/-1}
+.ctls .ctl .top{flex-direction:column;align-items:flex-start;gap:0}
+.ctls .ctl.full .top{flex-direction:row;align-items:baseline;justify-content:space-between}
+.ctls .ctl label{font-size:14px;color:var(--muted)}
+.ctls .ctl output{font-size:26px;white-space:nowrap}
+.ctls .ctl.full output{font-size:34px}
+.ctls input[type=range]{height:44px}
+.ctls input[type=range]::-webkit-slider-runnable-track{height:12px;border-radius:12px}
+.ctls input[type=range]::-webkit-slider-thumb{width:30px;height:30px;margin-top:-9px}
+.ctls input[type=range]::-moz-range-track,.ctls input[type=range]::-moz-range-progress{height:12px;border-radius:12px}
+.ctls input[type=range]::-moz-range-thumb{width:30px;height:30px}
 </style>
 </head>
 <body>
@@ -123,7 +137,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
-      <div class="cover" id="cover"><span>♪</span></div>
+      <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 24h10l14-11v38L18 40H8z" fill="currentColor"/><path d="M41 22c3.5 3 3.5 17 0 20"/><path d="M48 15c7.5 6.5 7.5 27.5 0 34"/><path d="M55 8c11 10 11 38 0 48" opacity=".6"/></svg></span></div>
       <canvas id="viz" width="400" height="56" aria-hidden="true"></canvas>
       <div class="title" id="name"></div>
       <div class="hint" id="sub"></div>
@@ -168,22 +182,24 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
           <button class="chip" data-reset data-i="chipReset"></button>
         </div>
         <div style="height:16px"></div>
-        <div class="ctl"><div class="top"><label for="speed" data-i="lSpeed"></label><output id="speedO">1.00x</output></div>
+        <div class="ctls">
+<div class="ctl full"><div class="top"><label for="speed" data-i="lSpeed"></label><output id="speedO">1.00x</output></div>
           <input type="range" id="speed" min="0.3" max="2" step="0.01" value="1"></div>
-        <div class="ctl"><div class="top"><label for="bass" data-i="lBass"></label><output id="bassO">+0 dB</output></div>
+<div class="ctl full"><div class="top"><label for="bass" data-i="lBass"></label><output id="bassO">+0 dB</output></div>
           <input type="range" id="bass" min="0" max="40" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="reverb" data-i="lReverb"></label><output id="reverbO">0%</output></div>
-          <input type="range" id="reverb" min="0" max="100" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="pan" data-i="lPan"></label><output id="panO">0%</output></div>
-          <input type="range" id="pan" min="0" max="100" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="vol" data-i="lVol"></label><output id="volO">0</output></div>
+<div class="ctl"><div class="top"><label for="vol" data-i="lVol"></label><output id="volO">0</output></div>
           <input type="range" id="vol" min="0" max="400" step="1" value="100"></div>
-        <div class="ctl"><div class="top"><label for="treble" data-i="lTreble"></label><output id="trebleO">0</output></div>
+<div class="ctl"><div class="top"><label for="treble" data-i="lTreble"></label><output id="trebleO">0</output></div>
           <input type="range" id="treble" min="0" max="20" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="echo" data-i="lEcho"></label><output id="echoO">0</output></div>
+<div class="ctl"><div class="top"><label for="reverb" data-i="lReverb"></label><output id="reverbO">0%</output></div>
+          <input type="range" id="reverb" min="0" max="100" step="1" value="0"></div>
+<div class="ctl"><div class="top"><label for="echo" data-i="lEcho"></label><output id="echoO">0</output></div>
           <input type="range" id="echo" min="0" max="100" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="muffle" data-i="lMuffle"></label><output id="muffleO">0</output></div>
+<div class="ctl"><div class="top"><label for="pan" data-i="lPan"></label><output id="panO">0%</output></div>
+          <input type="range" id="pan" min="0" max="100" step="1" value="0"></div>
+<div class="ctl"><div class="top"><label for="muffle" data-i="lMuffle"></label><output id="muffleO">0</output></div>
           <input type="range" id="muffle" min="0" max="100" step="1" value="0"></div>
+</div>
         <button class="btn dl" id="dl" disabled data-i="dlWav"></button>
         <button class="btn ghost dl" id="save" disabled style="margin-top:10px" data-i="saveLib"></button>
         <p class="status" id="status" role="status"></p>
