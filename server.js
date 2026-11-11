@@ -10,8 +10,8 @@ const saveRoles = () => { try { fs.writeFileSync(ROLES_FILE, JSON.stringify(role
 
 const hash = t => crypto.createHash('sha256').update(String(t)).digest('hex');
 const SYS = 'Ты помощник видеостудии сайта lowend. Верни ТОЛЬКО JSON без пояснений и без markdown с полями: ' +
-  'text (строка до 150 символов, \\n для переноса), font (thin|sans|display|mono|serif), resolution (одно из: 1022x576, 1280x720, 1920x1080, 720x1280, 1080x1920, 1080x1080; в current оно называется res; 1022x576 это размер по умолчанию, 16:9), ' +
-  'duration (секунды, число от 5 до 300), track (точное название из savedTracks или null), color (hex текста), bg (hex фона), progress (true|false). ' +
+  'text (строка до 150 символов, \\n для переноса), font (old|thin|sans|display|mono|serif; old это стиль старого видео пользователя: узкий шрифт, строки вплотную), resolution (одно из: 1022x576, 1280x720, 1920x1080, 720x1280, 1080x1920, 1080x1080; в current оно называется res; 1022x576 это размер по умолчанию, 16:9), ' +
+  'duration (секунды, число от 5 до 300), fade (секунды плавного появления текста из темноты, 0-10), track (точное название из savedTracks или null), color (hex текста), bg (hex фона), progress (true|false). ' +
   'Поля, которые пользователь не просил менять, оставляй такими же, как в current.';
 const aiHits = new Map();
 function studioAI(req, res, h) {
@@ -49,6 +49,8 @@ function studioAI(req, res, h) {
   });
 }
 
+const APP_FILES = { '/manifest.webmanifest': 'application/manifest+json', '/sw.js': 'application/javascript; charset=utf-8',
+  '/icon-192.png': 'image/png', '/icon-512.png': 'image/png', '/apple-touch-icon.png': 'image/png' };
 const server = http.createServer((req, res) => {
   if (req.url === '/health') return res.end('ok');
   const staff = ['owner', 'admin'].includes(roles[hash(req.headers['x-token'] || '')]); // только админы и владелец
@@ -61,6 +63,12 @@ const server = http.createServer((req, res) => {
       res.end(data);
     });
   }
+  const file = req.url.split('?')[0], type = APP_FILES[file];
+  if (type) return fs.readFile(path.join(__dirname, file.slice(1)), (err, data) => {
+    if (err) { res.writeHead(404); return res.end('not found'); }
+    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': file === '/sw.js' ? 'no-cache' : 'public, max-age=86400' });
+    res.end(data);
+  });
   fs.readFile(path.join(__dirname, 'index.html'), (err, data) => {
     if (err) { res.writeHead(500); return res.end('index.html not found'); }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
