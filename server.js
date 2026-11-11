@@ -3,12 +3,39 @@ const http = require('http'), fs = require('fs'), path = require('path'), crypto
 const { WebSocketServer } = require('ws');
 
 const OWNER_KEY = process.env.OWNER_KEY || '';
+const OWNER_NICK = String(process.env.OWNER_NICK || ''); // ник владельца: другие его занять не могут
+const normNick = x => String(x).toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 const ROLES_FILE = path.join(__dirname, 'roles.json');
 let roles = {}; // хэш токена -> 'owner' | 'admin'
 try { roles = JSON.parse(fs.readFileSync(ROLES_FILE, 'utf8')); } catch (e) {}
 const saveRoles = () => { try { fs.writeFileSync(ROLES_FILE, JSON.stringify(roles)); } catch (e) {} };
 
+// Ники: кто первым занял ник, тот им владеет. Хранится в Upstash Redis (бесплатно); без него в файле nicks.json (на Render он сбрасывается)
+const UP_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/$/, ''), UP_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const NICKS_FILE = path.join(__dirname, 'nicks.json');
+let nicksLocal = {}; // нормализованный ник -> хэш владельца
+try { nicksLocal = JSON.parse(fs.readFileSync(NICKS_FILE, 'utf8')); } catch (e) {}
+const redis = async cmd => {
+  const r = await fetch(UP_URL, { method: 'POST', headers: { Authorization: 'Bearer ' + UP_TOKEN, 'content-type': 'application/json' }, body: JSON.stringify(cmd) });
+  const j = await r.json(); if (j.error) throw new Error(j.error); return j.result;
+};
+async function claimNick(nn, h) { // true: ник твой, false: занят другим
+  if (UP_URL && UP_TOKEN) {
+    try {
+      if ((await redis(['SET', 'nick:' + nn, h, 'NX'])) !== 'OK' && (await redis(['GET', 'nick:' + nn])) !== h) return false;
+      const old = await redis(['GETSET', 'hnick:' + h, nn]);
+      if (old && old !== nn) await redis(['DEL', 'nick:' + old]); // прежний ник освобождается
+      return true;
+    } catch (e) { console.log('nick db error:', e.message); return true; } // база не ответила: не блокируем вход
+  }
+  if (nicksLocal[nn] && nicksLocal[nn] !== h) return false;
+  for (const k of Object.keys(nicksLocal)) if (nicksLocal[k] === h && k !== nn) delete nicksLocal[k];
+  nicksLocal[nn] = h;
+  try { fs.writeFileSync(NICKS_FILE, JSON.stringify(nicksLocal)); } catch (e) {}
+  return true;
+}
 const hash = t => crypto.createHash('sha256').update(String(t)).digest('hex');
+const keyOk = k => !!OWNER_KEY && typeof k === 'string' && k.length > 0 && crypto.timingSafeEqual(Buffer.from(hash(k)), Buffer.from(hash(OWNER_KEY)));
 const SYS = 'Ты помощник видеостудии сайта lowend. Верни ТОЛЬКО JSON без пояснений и без markdown с полями: ' +
   'text (строка до 150 символов, \\n для переноса), font (old|thin|sans|display|mono|serif; old это стиль старого видео пользователя: узкий шрифт, строки вплотную), resolution (одно из: 1022x576, 1280x720, 1920x1080, 720x1280, 1080x1920, 1080x1080; в current оно называется res; 1022x576 это размер по умолчанию, 16:9), ' +
   'duration (секунды, число от 5 до 300), fade (секунды плавного появления текста из темноты, 0-10), track (точное название из savedTracks или null), color (hex текста), bg (hex фона), progress (true|false). ' +
@@ -141,7 +168,7 @@ wss.on('connection', ws => {
   ws.on('pong', () => { ws.alive = true; });
   send(ws, { t: 'count', n: online() });
 
-  ws.on('message', raw => {
+  ws.on('message', async raw => {
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
     if (!m || typeof m !== 'object') return;
     const c = clients.get(ws);
@@ -150,8 +177,19 @@ wss.on('connection', ws => {
       if (typeof m.token !== 'string' || m.token.length < 20 || m.token.length > 200) return;
       const h = hash(m.token);
       if ((banned.get(h) || 0) > Date.now()) { send(ws, { t: 'kicked' }); return ws.close(); }
+      if (m.key && ws.fails < 5) { // ключ владельца, запомненный на устройстве: вход без повторного ввода после обновления
+        if (keyOk(m.key)) { if (roles[h] !== 'owner') { roles[h] = 'owner'; saveRoles(); } }
+        else { ws.fails++; send(ws, { t: 'authfail' }); }
+      }
       const id = h.slice(0, 6);
-      const name = String(m.name || '').replace(/[<>]/g, '').trim().slice(0, 20) || 'гость-' + id.slice(0, 3);
+      const given = String(m.name || '').replace(/[<>]/g, '').trim().slice(0, 20), nn = normNick(given);
+      let name = given || 'гость-' + id.slice(0, 3);
+      if (given && !nn) name = 'гость-' + id.slice(0, 3);
+      else if (nn) {
+        const ok = normNick(OWNER_NICK) === nn ? roles[h] === 'owner' : await claimNick(nn, h);
+        if (!ok) { name = 'гость-' + id.slice(0, 3); send(ws, { t: 'nickTaken' }); }
+      }
+      if (ws.readyState !== 1) return;
       clients.set(ws, { h, id, name, since: Date.now() });
       return broadcast();
     }

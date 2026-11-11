@@ -180,7 +180,8 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
         <div id="users"></div>
         <div class="src" style="margin-top:12px"><input type="text" id="noticeText" maxlength="200" placeholder="Сообщение всем на сайте"><button class="btn ghost sm" id="noticeBtn">Отправить</button></div>
       </section>
-      <p class="hint" style="text-align:center;margin-top:22px"><a href="#" id="ownerLink" style="color:inherit">вход для владельца</a></p>
+      <p class="hint" style="text-align:center;margin-top:22px"><a href="#" id="nickLink" style="color:inherit">сменить ник</a></p>
+      <p class="hint" style="text-align:center;margin-top:10px"><a href="#" id="ownerLink" style="color:inherit">вход для владельца</a></p>
     </div>
   </div>
 </div>
@@ -494,10 +495,15 @@ let nick = ''; try { nick = localStorage.getItem('lowend_nick') || ''; } catch (
 $('nick').value = nick;
 let ws = null, me = { id: '', role: 'user' }, entered = false, kicked = false, tries = 0, opened = false;
 const wsSend = o => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); };
+let pendingKey = '';
+const okey = () => { try { return localStorage.getItem('lowend_okey') || ''; } catch (e) { return ''; } };
+const hello = () => wsSend({ t: 'hello', token: tok, name: nick, key: okey() || undefined });
+let autoIn = false; try { autoIn = localStorage.getItem('lowend_in') === '1'; } catch (e) {}
+if (autoIn) { entered = true; $('welcome').style.display = 'none'; } // уже входил раньше: экран приветствия не показываем
 function connect() {
   if (location.protocol === 'file:' || kicked) return;
   try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); } catch (e) { return; }
-  ws.onopen = () => { opened = true; tries = 0; if (entered) wsSend({ t: 'hello', token: tok, name: nick }); };
+  ws.onopen = () => { opened = true; tries = 0; if (entered) hello(); };
   ws.onmessage = e => { try { onMsg(JSON.parse(e.data)); } catch (err) {} };
   ws.onclose = () => { if (!kicked && (opened || tries < 3)) setTimeout(connect, Math.min(15000, 1500 * ++tries)); };
 }
@@ -509,11 +515,12 @@ function showNotice(text) {
 $('notice').onclick = () => $('notice').hidden = true;
 function onMsg(m) {
   if (m.t === 'count') { const x = 'онлайн: ' + m.n; $('online').textContent = x; $('onlineW').textContent = 'Сейчас на сайте: ' + m.n; }
-  else if (m.t === 'me') { me = m; $('admin').hidden = m.role === 'user'; $('ownerLink').parentElement.hidden = m.role === 'owner'; }
+  else if (m.t === 'me') { me = m; if (m.role === 'owner' && pendingKey) { try { localStorage.setItem('lowend_okey', pendingKey); } catch (e) {} pendingKey = ''; } $('admin').hidden = m.role === 'user'; $('ownerLink').parentElement.hidden = m.role === 'owner'; }
   else if (m.t === 'users') renderUsers(m.list);
   else if (m.t === 'notice') showNotice((m.from ? m.from + ': ' : '') + m.text);
   else if (m.t === 'kicked') { kicked = true; showNotice('Тебя отключили на 10 минут.'); }
-  else if (m.t === 'authfail') showNotice('Неверный ключ владельца.');
+  else if (m.t === 'authfail') { if (pendingKey) { showNotice('Неверный ключ владельца.'); pendingKey = ''; } else { try { localStorage.removeItem('lowend_okey'); } catch (e) {} } }
+  else if (m.t === 'nickTaken') { showNotice('Этот ник занят, ты вошёл как гость. Выбери другой: «сменить ник» внизу.'); nick = ''; try { localStorage.removeItem('lowend_nick'); } catch (e) {} $('nick').value = ''; }
 }
 const ROLE = { owner: 'владелец', admin: 'админ', user: '' };
 function renderUsers(list) {
@@ -539,13 +546,19 @@ $('noticeBtn').onclick = () => { const t = $('noticeText').value.trim(); if (t) 
 $('ownerLink').onclick = e => {
   e.preventDefault();
   if (!ws || ws.readyState !== 1) return showNotice('Нет связи с сервером.');
-  const k = prompt('Ключ владельца:'); if (k) wsSend({ t: 'auth', key: k });
+  const k = prompt('Ключ владельца:'); if (k) { pendingKey = k; wsSend({ t: 'auth', key: k }); }
 };
 $('enter').onclick = () => {
   nick = $('nick').value.trim().slice(0, 20);
   try { localStorage.setItem('lowend_nick', nick); } catch (e) {}
-  entered = true; wsSend({ t: 'hello', token: tok, name: nick });
+  entered = true; try { localStorage.setItem('lowend_in', '1'); } catch (e) {} hello();
   $('welcome').classList.add('out');
+};
+$('nickLink').onclick = e => {
+  e.preventDefault();
+  const n = prompt('Новый ник:', nick); if (n === null) return;
+  nick = n.trim().slice(0, 20); try { localStorage.setItem('lowend_nick', nick); } catch (err) {}
+  $('nick').value = nick; hello();
 };
 $('nick').addEventListener('keydown', e => e.key === 'Enter' && $('enter').click());
 /* ---------- приложение (PWA) ---------- */
