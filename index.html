@@ -161,6 +161,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
       <section class="card fx" id="admin" hidden aria-label="Админ-панель">
         <h2>Админ-панель</h2>
         <p class="hint" id="adminInfo"></p>
+        <button class="btn" id="studioBtn" style="width:100%;margin:6px 0 12px">Студия: сделать видео</button>
         <div id="users"></div>
         <div class="src" style="margin-top:12px"><input type="text" id="noticeText" maxlength="200" placeholder="Сообщение всем на сайте"><button class="btn ghost sm" id="noticeBtn">Отправить</button></div>
       </section>
@@ -222,7 +223,7 @@ function buildChain(c, src, dest) {
     lim.connect(pan); out = pan;
   }
   out.connect(dest);
-  return { bass, dry, wet, lim, depth, treble, muffle, echo, vol };
+  return { bass, dry, wet, lim, depth, treble, muffle, echo, vol, out };
 }
 function applySettings(n) {
   n.bass.gain.value = S.bass;
@@ -494,6 +495,17 @@ $('enter').onclick = () => {
   $('welcome').classList.add('out');
 };
 $('nick').addEventListener('keydown', e => e.key === 'Enter' && $('enter').click());
+// Студия грузится с сервера только для админов и владельца
+$('studioBtn').onclick = async () => {
+  try {
+    if (!window.openStudio) {
+      const r = await fetch('/studio.js', { headers: { 'x-token': tok } });
+      if (!r.ok) throw 0;
+      const el = document.createElement('script'); el.textContent = await r.text(); document.head.append(el);
+    }
+    window.openStudio();
+  } catch (e) { showNotice('Студия доступна только админам и владельцу.'); }
+};
 connect();
 </script>
 </body>
