@@ -14,10 +14,10 @@
   const FSTYLE = { old: { sx: .82, lh: 1.02, dy: .024, noBlank: true } };
   const RES = { '1022x576': '16:9 · 1022×576 (как в твоём видео)', '1280x720': '16:9 · 720p', '1920x1080': '16:9 · 1080p', '720x1280': '9:16 · 720p', '1080x1920': '9:16 · 1080p', '1080x1080': '1:1 · 1080' };
   const SIZE_RES = { '16:9': '1280x720', '9:16': '720x1280', '1:1': '1080x1080' };
-  const d = { text: '', font: 'old', size: 15, color: '#ffffff', bg: '#000000', res: '1022x576', dur: 60, progress: false, fade: 2.6, start: 0, afade: 3 };
+  const d = { text: '', font: 'old', size: 15, color: '#ffffff', bg: '#000000', res: '1022x576', dur: 60, progress: false, fade: 2.6, start: 0, end: 0, afade: 3 };
   // студия помнит последние настройки, поэтому «как в прошлый раз» работает и после перезагрузки
   try { Object.assign(d, JSON.parse(localStorage.getItem('lowend_studio2') || '{}')); } catch (e) {}
-  d.start = 0; // начало трека не запоминаем: у каждого трека своё
+  d.start = 0; d.end = 0; // начало и конец не запоминаем: у каждого трека свои
   if (!FONTS[d.font]) d.font = 'old';
   if (!RES[d.res]) d.res = '1022x576';
   const keep = () => { try { localStorage.setItem('lowend_studio2', JSON.stringify(d)); } catch (e) {} };
@@ -84,7 +84,7 @@
   }
   function sync() {
     $('stText').value = d.text; $('stFont').value = d.font; $('stSize').value = d.size; $('stColor').value = d.color;
-    $('stBg').value = d.bg; $('stRes').value = d.res; $('stDur').value = d.dur; $('stFade').value = d.fade; $('stStart').value = d.start; $('stAfade').value = d.afade; $('stProg').checked = d.progress; preview();
+    $('stBg').value = d.bg; $('stRes').value = d.res; $('stDur').value = d.dur; $('stFade').value = d.fade; $('stStart').value = d.start; $('stEnd').value = d.end; $('stAfade').value = d.afade; $('stProg').checked = d.progress; preview();
   }
   function applyAI(j) {
     if (typeof j.text === 'string') d.text = j.text.slice(0, 200);
@@ -123,9 +123,10 @@
       try { await document.fonts.load('800 40px "Bricolage Grotesque"'); await document.fonts.load('400 40px "Space Mono"'); await document.fonts.load('400 40px "Instrument Sans"'); } catch (e) {}
       const type = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
       if (!type) throw new Error('Этот браузер не умеет записывать видео.');
-      const room = (buffer.duration - (d.start || 0)) / S.speed; // сколько трека осталось с выбранного места
-      if (room < 1) throw new Error('Начало слишком близко к концу: трек длится ' + fmt(buffer.duration) + '.');
-      const len = Math.min(d.dur, room); // если трек короче, видео заканчивается вместе с ним
+      const endT = d.end > 0 ? Math.min(d.end, buffer.duration) : buffer.duration; // «закончить на»: 0 = до конца трека
+      const room = (endT - (d.start || 0)) / S.speed;
+      if (room < 1) throw new Error('Между началом и концом меньше секунды. Трек длится ' + fmt(buffer.duration) + '.');
+      const len = d.end > 0 ? room : (d.dur > 0 ? Math.min(d.dur, room) : room); // длина 0 = до конца трека
       const [w, h] = d.res.split('x').map(Number); cv.width = w; cv.height = h;
       const g = cv.getContext('2d'), dest = ctx.createMediaStreamDestination(), fadeG = ctx.createGain(); nodes.out.connect(fadeG); fadeG.connect(dest);
       const stream = new MediaStream([...cv.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
@@ -171,15 +172,18 @@
       <div class="f"><label for="stPreset">Мои пресеты (стиль без текста)</label>
         <div class="src"><select id="stPreset"></select><button class="btn ghost sm" id="stPSave">Сохранить</button><button class="btn ghost sm" id="stPDel" aria-label="Удалить пресет">✕</button></div></div>
       <div class="f"><label for="stText">Текст</label><textarea id="stText"></textarea></div>
+      <p class="hint" id="stLen" style="margin-top:14px"></p>
+      <div class="src" style="margin-top:6px"><button class="btn ghost sm" id="stHereA" style="flex:1">Начало = позиция плеера</button><button class="btn ghost sm" id="stHereB" style="flex:1">Конец = позиция плеера</button></div>
       <div class="two">
         <div class="f"><label for="stFont">Шрифт</label><select id="stFont">${Object.entries(FONT_NAMES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
         <div class="f"><label for="stRes">Разрешение</label><select id="stRes">${Object.entries(RES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
         <div class="f"><label for="stColor">Цвет текста</label><input type="color" id="stColor"></div>
         <div class="f"><label for="stBg">Цвет фона</label><input type="color" id="stBg"></div>
         <div class="f"><label for="stSize">Размер текста</label><input type="range" id="stSize" min="4" max="16" step="1"></div>
-        <div class="f"><label for="stDur">Длина (секунд)</label><input type="number" id="stDur" min="5" max="300"></div>
+        <div class="f"><label for="stDur">Длина (сек, 0 = до конца)</label><input type="number" id="stDur" min="0" max="300"></div>
         <div class="f"><label for="stFade">Появление из темноты (сек)</label><input type="number" id="stFade" min="0" max="10" step="0.1"></div>
         <div class="f"><label for="stStart">Начать трек с (сек)</label><input type="number" id="stStart" min="0" step="0.1"></div>
+        <div class="f"><label for="stEnd">Закончить на (сек, 0 = до конца)</label><input type="number" id="stEnd" min="0" step="0.1"></div>
         <div class="f"><label for="stAfade">Затухание звука в конце (сек)</label><input type="number" id="stAfade" min="0" max="15" step="0.5"></div>
       </div>
       <label style="display:flex;gap:8px;align-items:center;margin-top:14px"><input type="checkbox" id="stProg"> Полоска прогресса внизу</label>
@@ -192,9 +196,11 @@
     $('stAI').addEventListener('keydown', e => e.key === 'Enter' && askAI());
     const bind = (id, key, fn = v => v) => $(id).oninput = e => { d[key] = fn(e.target.type === 'checkbox' ? e.target.checked : e.target.value); preview(); };
     bind('stText', 'text'); bind('stFont', 'font'); bind('stRes', 'res'); bind('stColor', 'color'); bind('stBg', 'bg'); bind('stProg', 'progress');
-    bind('stSize', 'size', Number); bind('stDur', 'dur', v => Math.max(5, Math.min(300, +v || 60)));
+    bind('stSize', 'size', Number); bind('stDur', 'dur', v => (+v === 0 ? 0 : Math.max(5, Math.min(300, +v || 60))));
     bind('stFade', 'fade', v => Math.max(0, Math.min(10, +v || 0)));
-    bind('stStart', 'start', v => Math.max(0, +v || 0)); bind('stAfade', 'afade', v => Math.max(0, Math.min(15, +v || 0)));
+    bind('stStart', 'start', v => Math.max(0, +v || 0)); bind('stEnd', 'end', v => Math.max(0, +v || 0));
+    const here = key => { if (!buffer) { $('stStatus').textContent = 'Сначала загрузи трек на главной.'; return; } d[key] = Math.round(pos() * 10) / 10; sync(); };
+    $('stHereA').onclick = () => here('start'); $('stHereB').onclick = () => here('end'); bind('stAfade', 'afade', v => Math.max(0, Math.min(15, +v || 0)));
     $('stProg').onchange = $('stProg').oninput;
     fillPresets();
     $('stPreset').onchange = e => {
@@ -215,6 +221,7 @@
     sel.innerHTML = '<option value="cur">Текущий трек на главной</option>' + all.map(t => `<option value="${t.id}">${t.title.replace(/</g, '&lt;')}</option>`).join('');
     if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
     if (!d.text) d.text = autoText();
+    $('stLen').textContent = buffer ? 'Трек на главной: ' + fmt(buffer.duration) + '. Секунды отсчитываются по времени самого трека.' : '';
     sync();
   };
 })();
