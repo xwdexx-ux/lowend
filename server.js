@@ -1,4 +1,4 @@
-// lowend: раздаёт index.html и ведёт онлайн, роли, админку и премиум (Telegram Stars).
+// lowend: раздаёт index.html и ведёт онлайн, роли и админку через WebSocket.
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
@@ -49,121 +49,128 @@ async function releaseNick(h) { // выход из аккаунта: ник сн
 }
 const hash = t => crypto.createHash('sha256').update(String(t)).digest('hex');
 const keyOk = k => !!OWNER_KEY && typeof k === 'string' && k.length > 0 && crypto.timingSafeEqual(Buffer.from(hash(k)), Buffer.from(hash(OWNER_KEY)));
-// Премиум за 50 звёзд Telegram: бот @Lowendeebot, вебхук /tg/webhook, срок хранится в Upstash Redis (без базы: premium.json, на Render он сбрасывается)
-const BOT = process.env.BOT_TOKEN || '', TG_SECRET = process.env.TG_SECRET || '', BOT_NAME = process.env.BOT_USERNAME || 'Lowendeebot';
-const PRICE = 50, PREM_MS = 30 * 86400000, HAS_DB = !!(UP_URL && UP_TOKEN);
-const CODE_RE = /^[0-9a-f]{24}$/, PAYLOAD_RE = /^p:[0-9a-f]{64}$/;
-const kvLocal = new Map();
-const kvSet = async (k, v, ttl) => {
-  if (HAS_DB) return redis(ttl ? ['SET', k, v, 'EX', ttl] : ['SET', k, v]);
-  if (kvLocal.size > 5000) kvLocal.clear();
-  kvLocal.set(k, { v, exp: ttl ? Date.now() + ttl * 1000 : 0 });
-};
-const kvGet = async k => {
-  if (HAS_DB) return redis(['GET', k]);
-  const e = kvLocal.get(k); if (!e) return null;
-  if (e.exp && e.exp < Date.now()) { kvLocal.delete(k); return null; }
-  return e.v;
-};
-const kvTake = async k => { if (HAS_DB) return redis(['GETDEL', k]); const v = await kvGet(k); kvLocal.delete(k); return v; };
-const kvNew = async (k, ttl) => { // true: ключа не было, мы его создали
-  if (HAS_DB) return (await redis(['SET', k, '1', 'NX', 'EX', ttl])) === 'OK';
-  if (await kvGet(k)) return false; await kvSet(k, '1', ttl); return true;
-};
+
+// ---------- Премиум: 30 дней за 50 Telegram Stars. Доступ к Студии. Хранится по хэшу анонимного токена (аккаунтов нет) ----------
+const BOT_TOKEN = process.env.BOT_TOKEN || '';
+let BOT_USER = String(process.env.BOT_USERNAME || '').replace(/^@/, '');
+const BASE_URL = (process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+const SUPPORT = process.env.SUPPORT_CONTACT || '';   // например @username: кому писать при проблемах с оплатой
+const OWNER_TG_ID = process.env.OWNER_TG_ID || '';   // твой Telegram id: бот будет присылать уведомления об оплатах (необязательно)
+const PREMIUM_STARS = 50, PREMIUM_DAYS = 30, DAY = 86400000;
 const PREM_FILE = path.join(__dirname, 'premium.json');
-let premLocal = {}; try { premLocal = JSON.parse(fs.readFileSync(PREM_FILE, 'utf8')); } catch (e) {}
-const premCache = new Map();
-async function premUntil(h, fresh) { // до какого времени (мс) у этого токена премиум
-  const c = premCache.get(h);
-  if (!fresh && c && Date.now() - c.t < 30000) return c.v;
-  const v = HAS_DB ? (+(await redis(['GET', 'prem:' + h])) || 0) : (premLocal[h] || 0);
-  premCache.set(h, { v, t: Date.now() }); return v;
+let premLocal = {}; // запасной вариант без Redis (на Render файл сбрасывается)
+try { premLocal = JSON.parse(fs.readFileSync(PREM_FILE, 'utf8')); } catch (e) {}
+const premCache = new Map(); // pid -> до какого времени (мс), для синхронных проверок
+const pid = h => h.slice(0, 48);
+const redisOn = () => !!(UP_URL && UP_TOKEN);
+async function kvGet(k) {
+  if (redisOn()) { try { return Number(await redis(['GET', k])) || 0; } catch (e) { console.log('premium db error:', e.message); } }
+  return premLocal[k] || 0;
 }
-const isPremium = async h => {
-  try { return (await premUntil(h)) > Date.now(); }
-  catch (e) { console.log('prem db error:', e.message); const c = premCache.get(h); return !!c && c.v > Date.now(); }
+async function kvSet(k, v) {
+  if (v > 0) premLocal[k] = v; else delete premLocal[k];
+  try { fs.writeFileSync(PREM_FILE, JSON.stringify(premLocal)); } catch (e) {}
+  if (redisOn()) { try { await redis(v > 0 ? ['SET', k, String(v)] : ['DEL', k]); } catch (e) { console.log('premium db error:', e.message); } }
+}
+async function getPremium(p) { const v = await kvGet('prem:' + p); premCache.set(p, v); return v; }
+async function setPremium(p, until) { premCache.set(p, until); await kvSet('prem:' + p, until); }
+async function addPremium(p, days) { // продлевает от текущего конца, если премиум ещё действует
+  const until = Math.max(Date.now(), await getPremium(p)) + days * DAY;
+  await setPremium(p, until); return until;
+}
+const isPrem = p => (premCache.get(p) || 0) > Date.now();
+async function hasStudio(h) { return ['owner', 'admin'].includes(roles[h]) || (await getPremium(pid(h))) > Date.now(); }
+const json = (res, code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+
+// Бот: /start, оплата Stars, /paysupport. Оплата идёт в боте, сайт только открывает ссылку на бота.
+const tg = async (method, body) => {
+  const r = await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/' + method, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const j = await r.json(); if (!j.ok) throw new Error(method + ': ' + j.description); return j.result;
 };
-async function addPremium(h) { // +30 дней (если премиум уже есть, добавляется к его концу)
-  const cur = await premUntil(h, true), until = Math.max(Date.now(), cur) + PREM_MS;
-  if (HAS_DB) await redis(['SET', 'prem:' + h, String(until)]);
-  else { premLocal[h] = until; try { fs.writeFileSync(PREM_FILE, JSON.stringify(premLocal)); } catch (e) {} }
-  premCache.set(h, { v: until, t: Date.now() }); return until;
-}
-async function tg(method, body) {
-  try {
-    const r = await fetch('https://api.telegram.org/bot' + BOT + '/' + method, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json(); if (!j.ok) console.log('tg', method, j.description); return !!j.ok;
-  } catch (e) { console.log('tg error', method); return false; }
-}
-const sendInvoice = (chat, h) => tg('sendInvoice', {
-  chat_id: chat, title: 'lowend: премиум на 30 дней', description: 'Студия lowend: видео с твоим текстом поверх музыки. Доступ на 30 дней.',
-  payload: 'p:' + h, currency: 'XTR', prices: [{ label: 'Премиум 30 дней', amount: PRICE }]
-});
-async function tgUpdate(u) {
-  const q = u.pre_checkout_query;
-  if (q) { // Telegram ждёт ответ не дольше 10 секунд
-    const ok = q.currency === 'XTR' && q.total_amount === PRICE && PAYLOAD_RE.test(q.invoice_payload || '');
-    await tg('answerPreCheckoutQuery', ok ? { pre_checkout_query_id: q.id, ok: true } : { pre_checkout_query_id: q.id, ok: false, error_message: 'Счёт не подходит. Открой бота с сайта заново.' });
-    return;
+const say = (chat, text, extra) => tg('sendMessage', { chat_id: chat, text, ...extra }).catch(e => console.log('tg error:', e.message));
+const TXT = {
+  ru: {
+    hello: 'lowend: басс-буст и студия видео.\n\nПремиум даёт Студию: видео со своим текстом поверх любимого трека. Купить его можно на сайте, в карточке «Premium».',
+    open: 'Открыть lowend',
+    invTitle: 'lowend Premium', invDesc: '30 дней доступа к Студии: видео со своим текстом поверх трека.', invLabel: 'Premium · 30 дней',
+    paid: d => 'Оплата прошла. Премиум активен до ' + d + '. Вернись на сайт: Студия уже открыта.',
+    restored: d => 'Премиум восстановлен на этом устройстве, он действует до ' + d + '.',
+    nothing: 'Не нашёл активного премиума, оплаченного с этого Telegram-аккаунта.',
+    support: 'Если оплата прошла, а премиум не появился, или нужен возврат: напиши ' + (SUPPORT || 'владельцу сайта') + ' и приложи скриншот оплаты. Возврат Stars делает владелец.',
+    fail: 'Не получилось. Попробуй ещё раз с сайта.'
+  },
+  en: {
+    hello: 'lowend: bass boost and a video studio.\n\nPremium unlocks the Studio: make videos with your own text over your favorite track. Buy it on the site, in the “Premium” card.',
+    open: 'Open lowend',
+    invTitle: 'lowend Premium', invDesc: '30 days of Studio access: videos with your own text over your track.', invLabel: 'Premium · 30 days',
+    paid: d => 'Payment received. Premium is active until ' + d + '. Go back to the site: the Studio is unlocked.',
+    restored: d => 'Premium restored on this device. It is valid until ' + d + '.',
+    nothing: 'I could not find active premium paid from this Telegram account.',
+    support: 'If you paid but premium did not appear, or you need a refund: message ' + (SUPPORT || 'the site owner') + ' with a screenshot of the payment. Refunds are made by the owner.',
+    fail: 'Something went wrong. Try again from the site.'
   }
-  const m = u.message; if (!m || !m.chat || m.chat.type !== 'private') return;
-  const sp = m.successful_payment;
-  if (sp) {
-    if (sp.currency !== 'XTR' || sp.total_amount < PRICE || !PAYLOAD_RE.test(sp.invoice_payload || '')) return;
-    const id = String(sp.telegram_payment_charge_id || ''); if (!id) return;
-    if (!(await kvNew('pay:' + id, 604800))) return; // этот платёж уже учтён
-    let until;
-    try { until = await addPremium(sp.invoice_payload.slice(2)); }
-    catch (e) { await kvTake('pay:' + id).catch(() => {}); throw e; } // не записалось: пусть Telegram повторит
-    await tg('sendMessage', { chat_id: m.chat.id, text: 'Готово! Премиум включён до ' + new Date(until).toLocaleDateString('ru-RU') + '. Вернись на сайт: студия уже открыта.' });
-    return;
+};
+const paidSeen = new Set();
+async function onUpdate(u) {
+  if (u.pre_checkout_query) { // Telegram ждёт ответ в течение 10 секунд
+    const q = u.pre_checkout_query, ok = /^prem:[0-9a-f]{48}$/.test(q.invoice_payload || '') && q.currency === 'XTR' && q.total_amount === PREMIUM_STARS;
+    return tg('answerPreCheckoutQuery', ok ? { pre_checkout_query_id: q.id, ok: true } : { pre_checkout_query_id: q.id, ok: false, error_message: 'Invalid payment' }).catch(e => console.log('tg error:', e.message));
   }
-  const cm = String(m.text || '').match(/^\/(start|buy)(?:@\w+)?(?:\s+(\S+))?/);
-  if (!cm) return;
-  let h = null;
-  if (cm[2] && CODE_RE.test(cm[2])) { h = await kvTake('pcode:' + cm[2]); if (h) await kvSet('tgh:' + m.chat.id, h, 86400); }
-  if (!h) h = await kvGet('tgh:' + m.chat.id);
-  if (!h) return void await tg('sendMessage', { chat_id: m.chat.id, text: 'Чтобы купить премиум, нажми «Купить премиум» на сайте lowend.onrender.com. Так я пойму, кому его включить.' });
-  await sendInvoice(m.chat.id, h);
+  const m = u.message; if (!m || !m.chat) return;
+  const L = TXT[String((m.from || {}).language_code || '').startsWith('ru') ? 'ru' : 'en'];
+  const dateOf = ms => new Date(ms).toLocaleDateString(L === TXT.ru ? 'ru-RU' : 'en-GB');
+  const site = BASE_URL ? { reply_markup: { inline_keyboard: [[{ text: L.open, url: BASE_URL }]] } } : {};
+  if (m.successful_payment) {
+    const sp = m.successful_payment, id = sp.telegram_payment_charge_id;
+    if (!/^prem:[0-9a-f]{48}$/.test(sp.invoice_payload || '') || paidSeen.has(id)) return;
+    paidSeen.add(id);
+    if (redisOn()) { try { if ((await redis(['SET', 'pay:' + id, JSON.stringify({ p: sp.invoice_payload, tg: m.from.id, at: Date.now() }), 'NX'])) !== 'OK') return; } catch (e) {} }
+    const p = sp.invoice_payload.slice(5), until = await addPremium(p, PREMIUM_DAYS);
+    const prev = await kvGet('tgprem:' + m.from.id); await kvSet('tgprem:' + m.from.id, Math.max(prev, until)); // чтобы можно было восстановить на другом устройстве
+    console.log('premium paid:', p.slice(0, 6), 'tg', m.from.id, 'charge', id);
+    broadcast();
+    if (OWNER_TG_ID) say(OWNER_TG_ID, 'Оплата: ' + PREMIUM_STARS + ' Stars от ' + (m.from.username ? '@' + m.from.username : m.from.id) + '\nпремиум для id ' + p.slice(0, 6) + '\ncharge id: ' + id);
+    return say(m.chat.id, L.paid(dateOf(until)), site);
+  }
+  const text = String(m.text || '');
+  if (text.startsWith('/paysupport')) {
+    if (OWNER_TG_ID) say(OWNER_TG_ID, '/paysupport от ' + (m.from.username ? '@' + m.from.username : m.from.id));
+    return say(m.chat.id, L.support);
+  }
+  if (text.startsWith('/start')) {
+    const par = text.split(/\s+/)[1] || '', mm = /^([br])_([0-9a-f]{48})$/.exec(par);
+    if (mm && mm[1] === 'b') { // купить
+      return tg('sendInvoice', { chat_id: m.chat.id, title: L.invTitle, description: L.invDesc, payload: 'prem:' + mm[2], currency: 'XTR', prices: [{ label: L.invLabel, amount: PREMIUM_STARS }] })
+        .catch(e => { console.log('tg error:', e.message); say(m.chat.id, L.fail); });
+    }
+    if (mm && mm[1] === 'r') { // восстановить на новом токене
+      const until = await kvGet('tgprem:' + m.from.id);
+      if (until <= Date.now()) return say(m.chat.id, L.nothing);
+      if (until > await getPremium(mm[2])) await setPremium(mm[2], until);
+      broadcast();
+      return say(m.chat.id, L.restored(dateOf(until)), site);
+    }
+  }
+  return say(m.chat.id, L.hello, site);
 }
-function tgWebhook(req, res) {
-  const given = String(req.headers['x-telegram-bot-api-secret-token'] || '');
-  if (!BOT || !TG_SECRET || !crypto.timingSafeEqual(Buffer.from(hash(given)), Buffer.from(hash(TG_SECRET)))) { res.writeHead(403); return res.end('no'); }
-  let body = '', dead = false;
-  req.on('data', d => { body += d; if (body.length > 100000 && !dead) { dead = true; req.destroy(); } });
-  req.on('end', async () => {
-    if (dead) return;
-    let u; try { u = JSON.parse(body); } catch (e) { res.writeHead(400); return res.end('bad'); }
-    try { await tgUpdate(u); res.writeHead(200); res.end('ok'); }
-    catch (e) { console.log('webhook error:', e.message); res.writeHead(500); res.end('err'); }
-  });
-}
-const premHits = new Map();
-function premLimited(req, max) {
-  const ip = ipOf(req), now = Date.now();
-  if (premHits.size > 5000) premHits.clear();
-  const h = (premHits.get(ip) || []).filter(t => now - t < 60000);
-  if (h.length >= max) return true;
-  premHits.set(ip, [...h, now]); return false;
-}
-const tokOf = req => { const t = String(req.headers['x-token'] || ''); return t.length >= 20 && t.length <= 200 ? t : ''; };
-async function premStatus(req, res) {
-  const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(o)); };
-  const tk = tokOf(req); if (!tk) return out(400, { error: 'bad token' });
-  if (premLimited(req, 60)) return out(429, { error: 'limit' });
-  const until = await premUntil(hash(tk)).catch(() => 0);
-  out(200, { premium: until > Date.now(), until: until > Date.now() ? until : 0 });
-}
-async function premCode(req, res) { // одноразовый код: связывает покупку в боте с этим устройством
-  const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(o)); };
-  const tk = tokOf(req); if (!tk) return out(400, { error: 'bad token' });
-  if (!BOT || !TG_SECRET) return out(501, { error: 'Оплата не настроена.' });
-  if (premLimited(req, 10)) return out(429, { error: 'limit' });
+async function startBot() {
+  if (!BOT_TOKEN) return console.log('BOT_TOKEN не задан: бот и оплата выключены');
   try {
-    const code = crypto.randomBytes(12).toString('hex');
-    await kvSet('pcode:' + code, hash(tk), 3600);
-    out(200, { link: 'https://t.me/' + BOT_NAME + '?start=' + code });
-  } catch (e) { console.log('code error:', e.message); out(500, { error: 'fail' }); }
+    const me = await tg('getMe'); BOT_USER = BOT_USER || me.username;
+    await tg('setMyCommands', { commands: [{ command: 'start', description: 'Start' }, { command: 'paysupport', description: 'Payment help' }] }).catch(() => {});
+    if (BASE_URL) { // вебхук: Telegram сам будит сервер на Render
+      await tg('setWebhook', { url: BASE_URL + '/tg', secret_token: hash(BOT_TOKEN).slice(0, 32), allowed_updates: ['message', 'pre_checkout_query'] });
+      return console.log('bot @' + BOT_USER + ': webhook ' + BASE_URL + '/tg');
+    }
+    await tg('deleteWebhook'); console.log('bot @' + BOT_USER + ': polling');
+    let off = 0;
+    for (;;) {
+      try {
+        const ups = await tg('getUpdates', { offset: off, timeout: 30, allowed_updates: ['message', 'pre_checkout_query'] });
+        for (const u of ups) { off = u.update_id + 1; try { await onUpdate(u); } catch (e) { console.log('bot error:', e.message); } }
+      } catch (e) { console.log('poll error:', e.message); await new Promise(r => setTimeout(r, 5000)); }
+    }
+  } catch (e) { console.log('bot start error:', e.message); }
 }
 const SYS = 'Ты помощник видеостудии сайта lowend. Верни ТОЛЬКО JSON без пояснений и без markdown с полями: ' +
   'text (строка до 150 символов, \\n для переноса), font (old|thin|sans|display|mono|serif; old это стиль старого видео пользователя: узкий шрифт, строки вплотную), resolution (одно из: 1022x576, 1280x720, 1920x1080, 720x1280, 1080x1920, 1080x1080; в current оно называется res; 1022x576 это размер по умолчанию, 16:9), ' +
@@ -251,20 +258,29 @@ const server = http.createServer((req, res) => {
   const pth = req.url.split('?')[0];
   if (pth === '/api/search') return musicSearch(req, res);
   if (pth === '/api/preview') return musicPreview(req, res);
-  if (pth === '/tg/webhook' && req.method === 'POST') return tgWebhook(req, res);
-  if (pth === '/api/premium' && req.method === 'POST') return premStatus(req, res);
-  if (pth === '/api/premium/code' && req.method === 'POST') return premCode(req, res);
-  const staff = ['owner', 'admin'].includes(roles[hash(req.headers['x-token'] || '')]); // только админы и владелец
-  if (req.url === '/studio.js' || req.url === '/api/studio-ai') {
-    return Promise.resolve(staff || isPremium(hash(req.headers['x-token'] || ''))).then(ok => { // админы, владелец и обладатели премиума
+  if (pth === '/tg' && req.method === 'POST') { // вебхук Telegram
+    if (!BOT_TOKEN || req.headers['x-telegram-bot-api-secret-token'] !== hash(BOT_TOKEN).slice(0, 32)) { res.writeHead(403); return res.end(); }
+    let b = ''; req.on('data', d => { b += d; if (b.length > 200000) req.destroy(); });
+    return req.on('end', async () => { try { await onUpdate(JSON.parse(b)); } catch (e) { console.log('bot error:', e.message); } res.writeHead(200); res.end('ok'); });
+  }
+  if (pth === '/api/premium/link') { // ссылка на бота: купить (b) или восстановить (r)
+    const tk = String(req.headers['x-token'] || '');
+    if (tk.length < 20 || tk.length > 200) return json(res, 400, { error: 'bad token' });
+    if (!BOT_TOKEN || !BOT_USER) return json(res, 501, { error: 'payments off' });
+    const mode = new URL(req.url, 'http://x').searchParams.get('r') ? 'r' : 'b';
+    return json(res, 200, { url: 'https://t.me/' + BOT_USER + '?start=' + mode + '_' + pid(hash(tk)) });
+  }
+  if (req.url === '/studio.js' || req.url === '/api/studio-ai') { // только админы, владелец и премиум
+    const th = hash(req.headers['x-token'] || '');
+    return hasStudio(th).then(ok => {
       if (!ok) { res.writeHead(403); return res.end('forbidden'); }
-      if (req.url === '/api/studio-ai' && req.method === 'POST') return studioAI(req, res, hash(req.headers['x-token']));
-      return fs.readFile(path.join(__dirname, 'studio.js'), (err, data) => {
+      if (req.url === '/api/studio-ai' && req.method === 'POST') return studioAI(req, res, th);
+      fs.readFile(path.join(__dirname, 'studio.js'), (err, data) => {
         if (err) { res.writeHead(500); return res.end('studio.js not found'); }
         res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
         res.end(data);
       });
-    });
+    }).catch(() => { res.writeHead(500); res.end('error'); });
   }
   const file = req.url.split('?')[0], type = APP_FILES[file];
   if (type) return fs.readFile(path.join(__dirname, file.slice(1)), (err, data) => {
@@ -288,11 +304,11 @@ const online = () => new Set([...clients.values()].map(c => c.h)).size;
 
 function broadcast() {
   const now = Date.now(), n = online();
-  const list = [...clients.values()].map(c => ({ id: c.id, name: c.name, role: roleOf(c.h), age: Math.round((now - c.since) / 1000) }));
+  const list = [...clients.values()].map(c => ({ id: c.id, name: c.name, role: roleOf(c.h), prem: isPrem(pid(c.h)), age: Math.round((now - c.since) / 1000) }));
   for (const w of wss.clients) send(w, { t: 'count', n });
   for (const [ws, c] of clients) {
     const role = roleOf(c.h);
-    send(ws, { t: 'me', id: c.id, role, name: c.name });
+    send(ws, { t: 'me', id: c.id, role, name: c.name, premium: premCache.get(pid(c.h)) || 0 });
     if (role !== 'user') send(ws, { t: 'users', list });
   }
 }
@@ -324,6 +340,8 @@ wss.on('connection', ws => {
         if (!ok) { name = 'гость-' + id.slice(0, 3); send(ws, { t: 'nickTaken' }); }
       }
       if (ws.readyState !== 1) return;
+      await getPremium(pid(h));
+      if (ws.readyState !== 1) return;
       clients.set(ws, { h, id, name, since: Date.now() });
       return broadcast();
     }
@@ -333,6 +351,7 @@ wss.on('connection', ws => {
       if (roles[c.h]) { delete roles[c.h]; saveRoles(); }
       clients.delete(ws); send(ws, { t: 'loggedout' }); return broadcast();
     }
+    if (m.t === 'sync') { await getPremium(pid(c.h)); return broadcast(); } // сайт вернулся из Telegram: обновить премиум
     const role = roleOf(c.h);
 
     if (m.t === 'auth') { // вход владельца по ключу из переменной OWNER_KEY
@@ -351,6 +370,11 @@ wss.on('connection', ws => {
       const tg = target(); if (!tg || roleOf(tg[1].h) === 'owner') return;
       if (m.role === 'admin') roles[tg[1].h] = 'admin'; else delete roles[tg[1].h];
       saveRoles(); broadcast();
+    } else if (m.t === 'grant' && role === 'owner') { // выдать премиум (days > 0 добавляет дни) или снять (days = 0)
+      const tg2 = target(); if (!tg2 || roleOf(tg2[1].h) === 'owner') return;
+      const p = pid(tg2[1].h), days = Math.round(Number(m.days));
+      if (days === 0) await setPremium(p, 0); else if (days > 0 && days <= 3650) await addPremium(p, days); else return;
+      broadcast();
     } else if (m.t === 'kick') {
       const tg = target(); if (!tg) return;
       const th = tg[1].h, tr = roleOf(th);
@@ -366,4 +390,4 @@ wss.on('connection', ws => {
 setInterval(() => wss.clients.forEach(w => { if (!w.alive) return w.terminate(); w.alive = false; w.ping(); }), 30000);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => console.log('lowend on :' + PORT));
+server.listen(PORT, '0.0.0.0', () => { console.log('lowend on :' + PORT); startBot(); });

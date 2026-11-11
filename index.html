@@ -73,8 +73,8 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
 .card{border-radius:18px;backdrop-filter:none;-webkit-backdrop-filter:none}
-.cover{background:#000;box-shadow:none;border-radius:12px}
-.cover span{opacity:1;color:#fff;width:52%;height:52%;display:block}
+.cover{background:#161616;box-shadow:none;border-radius:12px}
+.cover span{opacity:.25;width:46%;height:46%;display:block}
 .item{display:flex;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--edge)}
 .item:first-child{border-top:0}
 .item .meta{flex:1;min-width:0}
@@ -105,7 +105,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 #langBtnW{position:absolute;top:14px;right:14px}
 #welcome{position:fixed}
 :root[data-theme=light]{--a:#000;--b:#555;--ink:#fff;--text:#000;--muted:#666;--glass:#f3f3f3;--edge:#dadada;--track:#d2d2d2;--thumb:#000;--onA:#fff;--playbg:#000;--playfg:#fff;--field:#fff;color-scheme:light}
-[data-theme=light] .cover{background:#000}
+[data-theme=light] .cover{background:#e8e8e8}
 [data-theme=light] .av{background:#e8e8e8}
 [data-theme=light] .src input::placeholder,[data-theme=light] #nick::placeholder{color:#00000066}
 [data-theme=light] #welcome{background:radial-gradient(ellipse at 50% 28%,#fff,#e4e4e4 70%)}
@@ -129,12 +129,23 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .ctls input[type=range]::-webkit-slider-thumb{width:30px;height:30px;margin-top:-9px}
 .ctls input[type=range]::-moz-range-track,.ctls input[type=range]::-moz-range-progress{height:12px;border-radius:12px}
 .ctls input[type=range]::-moz-range-thumb{width:30px;height:30px}
-.pdemo{aspect-ratio:16/9;background:#000;border-radius:12px;position:relative;overflow:hidden;margin:12px 0;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;font:300 clamp(13px,3.8vw,18px)/1.05 -apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:.02em}
-.pdemo i{position:absolute;left:0;bottom:0;height:3px;width:42%;background:#fff}
-.plist{margin:8px 0 12px 18px;color:var(--muted);font-size:14px}
-.plist li{margin-top:4px}
-.alink{display:block;text-align:center;text-decoration:none}
-.alink[hidden]{display:none}
+
+/* заглушка обложки: белые скруглённые полоски на чистом чёрном */
+.cover{background:#000;border:1px solid var(--edge)}
+.cover span{opacity:1;color:#fff}
+[data-theme=light] .cover{background:#000}
+/* премиум */
+.prem-sub{color:var(--muted);margin:-4px 0 14px}
+.pv{position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;display:grid;place-items:center;text-align:center;color:#fff;margin-bottom:14px}
+.pv-t{font:300 clamp(18px,5.4vw,30px)/1.02 -apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;opacity:0;animation:pvfade 8s infinite}
+.pv-bar{position:absolute;left:0;bottom:0;height:4px;background:#fff;width:0;animation:pvbar 8s linear infinite}
+@keyframes pvfade{0%,6%{opacity:0}34%,92%{opacity:1}100%{opacity:0}}
+@keyframes pvbar{from{width:0}to{width:100%}}
+@media(prefers-reduced-motion:reduce){.pv-t{animation:none;opacity:1}.pv-bar{animation:none;width:40%}}
+.prem-list{margin:10px 0 16px 6px;padding-left:22px;color:var(--muted);font-size:15px}
+.prem-list li{margin:6px 0}
+#premActive{margin:0 0 12px;color:var(--text);font-weight:600}
+#users .item{flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -143,7 +154,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
-      <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="currentColor" aria-hidden="true"><rect x="1.5" y="26.0" width="5" height="12" rx="2.5"/><rect x="8.5" y="21.0" width="5" height="22" rx="2.5"/><rect x="15.5" y="16.0" width="5" height="32" rx="2.5"/><rect x="22.5" y="11.0" width="5" height="42" rx="2.5"/><rect x="29.5" y="4.0" width="5" height="56" rx="2.5"/><rect x="36.5" y="11.0" width="5" height="42" rx="2.5"/><rect x="43.5" y="16.0" width="5" height="32" rx="2.5"/><rect x="50.5" y="21.0" width="5" height="22" rx="2.5"/><rect x="57.5" y="26.0" width="5" height="12" rx="2.5"/></svg></span><img id="coverImg" alt=""></div>
+      <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="currentColor" aria-hidden="true"><rect x="6" y="28" width="4" height="8" rx="2"/><rect x="12" y="24" width="4" height="16" rx="2"/><rect x="18" y="19" width="4" height="26" rx="2"/><rect x="24" y="14" width="4" height="36" rx="2"/><rect x="30" y="8" width="4" height="48" rx="2"/><rect x="36" y="14" width="4" height="36" rx="2"/><rect x="42" y="19" width="4" height="26" rx="2"/><rect x="48" y="24" width="4" height="16" rx="2"/><rect x="54" y="28" width="4" height="8" rx="2"/></svg></span><img id="coverImg" alt=""></div>
       <canvas id="viz" width="400" height="56" aria-hidden="true"></canvas>
       <div class="title" id="name"></div>
       <div class="hint" id="sub"></div>
@@ -217,23 +228,24 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
         <p class="hint" id="libEmpty" data-i="libEmpty"></p>
       </section>
 
+      <section class="card fx" id="premCard" aria-label="Premium">
+        <h2 data-i="premH"></h2>
+        <p class="prem-sub" data-i="premSub"></p>
+        <div class="pv" aria-hidden="true"><div class="pv-t">lowend<br>your text here</div><i class="pv-bar"></i></div>
+        <p class="hint" data-i="premDesc"></p>
+        <ul class="prem-list"><li data-i="premB1"></li><li data-i="premB2"></li><li data-i="premB3"></li><li data-i="premB4"></li></ul>
+        <p id="premActive" hidden></p>
+        <button class="btn" id="premOpen" hidden style="width:100%" data-i="premOpen"></button>
+        <button class="btn" id="premBuy" style="width:100%" data-i="premBuy"></button>
+        <p class="hint" style="text-align:center;margin-top:10px"><a href="#" id="premRestore" style="color:inherit" data-i="premRestore"></a></p>
+      </section>
+
       <section class="card fx" id="admin" hidden aria-label="Админ-панель">
         <h2 data-i="adminH"></h2>
         <p class="hint" id="adminInfo"></p>
         <button class="btn" id="studioBtn" style="width:100%;margin:6px 0 12px" data-i="studioBtn"></button>
         <div id="users"></div>
         <div class="src" style="margin-top:12px"><input type="text" id="noticeText" maxlength="200" data-ph="noticePh" placeholder="Message to everyone"><button class="btn ghost sm" id="noticeBtn" data-i="send"></button></div>
-      </section>
-      <section class="card fx" id="premCard" aria-label="Premium">
-        <h2 data-i="premH"></h2>
-        <p class="hint" id="premState"></p>
-        <div class="pdemo"><span>lowend<br>your text here</span><i></i></div>
-        <p class="hint" data-i="premWhat"></p>
-        <ul class="plist"><li data-i="premL1"></li><li data-i="premL2"></li><li data-i="premL3"></li><li data-i="premL4"></li></ul>
-        <button class="btn" id="premBuy" style="width:100%"></button>
-        <a class="btn ghost alink" id="premLink" hidden target="_blank" rel="noopener" style="margin-top:8px" data-i="premOpenBot"></a>
-        <button class="btn ghost" id="premStudio" hidden style="width:100%;margin-top:8px" data-i="studioBtn"></button>
-        <p class="status" id="premStatus" role="status"></p>
       </section>
       <section class="card fx" id="appCard" hidden aria-label="Приложение">
         <h2 data-i="appH"></h2>
@@ -287,6 +299,12 @@ ru: {
   h1:'1. Трек', drop:'Нажми и выбери песню (mp3, m4a, wav)', h2:'2. Звук', chipLoud:'Громче', chipEcho:'Эхо', chipWater:'Под водой', chipReset:'Сбросить',
   lSpeed:'Скорость', lBass:'Бас', lReverb:'Реверб', lPan:'8D панорама', lVol:'Громкость', lTreble:'Высокие', lEcho:'Эхо', lMuffle:'Под водой',
   dlWav:'Скачать WAV', saveLib:'Сохранить в библиотеку', h3:'3. Сохранённое', libEmpty:'Пока пусто. Настрой звук и нажми «Сохранить в библиотеку».',
+  premH:'Premium', premSub:'50 ⭐ Telegram Stars на 30 дней',
+  premDesc:'Premium открывает Студию: делай видео со своим текстом поверх любимого трека. Как в примере выше: чёрный фон, тонкий текст, плавное появление и полоса прогресса.',
+  premB1:'Видео 16:9, 9:16 и 1:1, до 4K', premB2:'Свой текст, шрифт, цвета и размер', premB3:'Выбери кусок трека и плавно убери звук в конце', premB4:'Пресеты стиля и ИИ-помощник: опиши словами, он всё настроит',
+  premBuy:'Купить premium · 50 ⭐', premOpen:'Открыть Студию', premRestore:'Уже оплачивал? Восстановить premium',
+  premUntil:'Premium активен до ', premOn:'Premium включён. Студия открыта.', premOff:'Снять premium', prem30:'Premium +30 дн', premBadge:'premium',
+  premStaff:'Тебе Студия доступна как админу.', premErr:'Оплата сейчас недоступна.',
   adminH:'Админ-панель', studioBtn:'Студия: сделать видео', noticePh:'Сообщение всем на сайте', send:'Отправить',
   appH:'Приложение lowend', appHint:'Поставь lowend на экран телефона как приложение: без адресной строки и открывается быстрее.', appBtn:'Скачать приложение',
   changeNick:'сменить ник', logout:'выйти', ownerLogin:'вход для владельца',
@@ -308,12 +326,7 @@ ru: {
   iosOther:'Открой сайт в Safari: нажми «Поделиться» → «На экран Домой».',
   iosSafari:'В нижней панели Safari нажми «Поделиться» (квадрат со стрелкой; на новых iPhone он внутри меню «•••» справа внизу), прокрути список вниз и выбери «На экран Домой» → «Добавить».',
   otherInstall:'В меню браузера выбери «Установить приложение» или «Добавить на главный экран».',
-  studioOnly:'Студия доступна с премиумом.',
-  premH:'Премиум', premPrice:'50 ⭐ Telegram Stars на 30 дней', premUntil:'Премиум активен до ', premBuy:'Купить премиум · 50 ⭐', premExtend:'Продлить на 30 дней · 50 ⭐',
-  premWhat:'Премиум открывает Студию: делаешь видео, где твой текст идёт поверх любимого трека. Как в примере выше: чёрный фон, тонкий текст, плавное появление и полоска прогресса.',
-  premL1:'Видео 16:9, 9:16 и 1:1, вплоть до 4K', premL2:'Свой текст, шрифт, цвета и размер', premL3:'Выбор отрезка трека и затухание звука в конце', premL4:'Пресеты стиля и ИИ-помощник: опиши словами, и он всё настроит',
-  premOpenBot:'Открыть бота в Telegram', premGo:'Оплати 50 ⭐ в боте и вернись сюда: премиум включится сам.', premDone:'Премиум включён. Студия открыта.', premFail:'Не получилось открыть оплату, попробуй позже.',
-  logoutPrem:'Внимание: премиум привязан к этому устройству и пропадёт после выхода.'
+  studioOnly:'Студия доступна только с premium, админам и владельцу.'
 },
 en: {
   pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
@@ -321,6 +334,12 @@ en: {
   h1:'1. Track', drop:'Tap and choose a song (mp3, m4a, wav)', h2:'2. Sound', chipLoud:'Louder', chipEcho:'Echo', chipWater:'Underwater', chipReset:'Reset',
   lSpeed:'Speed', lBass:'Bass', lReverb:'Reverb', lPan:'8D pan', lVol:'Volume', lTreble:'Treble', lEcho:'Echo', lMuffle:'Underwater',
   dlWav:'Download WAV', saveLib:'Save to library', h3:'3. Saved', libEmpty:'Nothing here yet. Set up the sound and tap “Save to library”.',
+  premH:'Premium', premSub:'50 ⭐ Telegram Stars for 30 days',
+  premDesc:'Premium unlocks the Studio: make videos with your own text over your favorite track. Like the example above: black background, thin text, a soft fade-in and a progress bar.',
+  premB1:'16:9, 9:16 and 1:1 video, up to 4K', premB2:'Your own text, font, colors and size', premB3:'Pick a part of the track and fade the sound out at the end', premB4:'Style presets and an AI helper: describe it in words and it sets everything up',
+  premBuy:'Buy premium · 50 ⭐', premOpen:'Open the Studio', premRestore:'Already paid? Restore premium',
+  premUntil:'Premium is active until ', premOn:'Premium is on. The Studio is unlocked.', premOff:'Remove premium', prem30:'Premium +30 d', premBadge:'premium',
+  premStaff:'The Studio is available to you as an admin.', premErr:'Payments are not available right now.',
   adminH:'Admin panel', studioBtn:'Studio: make a video', noticePh:'Message to everyone on the site', send:'Send',
   appH:'lowend app', appHint:'Add lowend to your phone screen as an app: no address bar and it opens faster.', appBtn:'Get the app',
   changeNick:'change nickname', logout:'log out', ownerLogin:'owner login',
@@ -342,12 +361,7 @@ en: {
   iosOther:'Open the site in Safari: tap “Share” → “Add to Home Screen”.',
   iosSafari:'In the Safari bottom bar tap “Share” (square with an arrow; on newer iPhones it is inside the “•••” menu at the bottom right), scroll down and choose “Add to Home Screen” → “Add”.',
   otherInstall:'In the browser menu choose “Install app” or “Add to Home screen”.',
-  studioOnly:'The studio is available with premium.',
-  premH:'Premium', premPrice:'50 ⭐ Telegram Stars for 30 days', premUntil:'Premium active until ', premBuy:'Buy premium · 50 ⭐', premExtend:'Extend for 30 days · 50 ⭐',
-  premWhat:'Premium unlocks the Studio: make videos with your own text over your favorite track. Like the example above: black background, thin text, a soft fade-in and a progress bar.',
-  premL1:'16:9, 9:16 and 1:1 video, up to 4K', premL2:'Your own text, font, colors and size', premL3:'Pick a part of the track and fade the sound out at the end', premL4:'Style presets and an AI helper: describe it in words and it sets everything up',
-  premOpenBot:'Open the bot in Telegram', premGo:'Pay 50 ⭐ in the bot and come back: premium turns on by itself.', premDone:'Premium is on. The studio is open.', premFail:'Could not open the payment, try again later.',
-  logoutPrem:'Warning: premium is tied to this device and will be lost after logging out.'
+  studioOnly:'The Studio is only available with premium, to admins and the owner.'
 }};
 let lang = 'en'; try { if (localStorage.getItem('lowend_lang') === 'ru') lang = 'ru'; } catch (e) {} // по умолчанию всегда английский
 const t = k => (LANG[lang] && LANG[lang][k]) || LANG.en[k] || k;
@@ -368,10 +382,9 @@ function applyLang() {
   else $('sub').textContent = t('len') + fmt(buffer.duration);
   if (typeof onlineN === 'number') showOnline();
   applyTheme();
-  if (typeof renderPrem === 'function') renderPrem();
   if (typeof renderLib === 'function') renderLib();
   if (typeof lastUsers !== 'undefined' && lastUsers) renderUsers(lastUsers);
-  if (typeof me !== 'undefined') { $('pRole').textContent = roleName(me.role); }
+  if (typeof me !== 'undefined') { $('pRole').textContent = roleName(me.role); if (typeof onPremium === 'function') onPremium(); }
   if (!$('installHint').hidden) {} // текст подсказки уже обновлён через data-i
 }
 function toggleLang() { lang = lang === 'ru' ? 'en' : 'ru'; try { localStorage.setItem('lowend_lang', lang); } catch (e) {} applyLang(); }
@@ -793,7 +806,7 @@ function showNotice(text) {
 $('notice').onclick = () => $('notice').hidden = true;
 function onMsg(m) {
   if (m.t === 'count') { onlineN = m.n; showOnline(); }
-  else if (m.t === 'me') { me = m; paintAvs(); if (m.role === 'owner' && pendingKey) { try { localStorage.setItem('lowend_okey', pendingKey); } catch (e) {} pendingKey = ''; } $('admin').hidden = m.role === 'user'; renderPrem(); $('ownerLink').parentElement.hidden = m.role === 'owner'; }
+  else if (m.t === 'me') { me = m; paintAvs(); if (m.role === 'owner' && pendingKey) { try { localStorage.setItem('lowend_okey', pendingKey); } catch (e) {} pendingKey = ''; } $('admin').hidden = m.role === 'user'; $('ownerLink').parentElement.hidden = m.role === 'owner'; onPremium(); }
   else if (m.t === 'users') { lastUsers = m.list; renderUsers(m.list); }
   else if (m.t === 'notice') showNotice((m.from ? m.from + ': ' : '') + m.text);
   else if (m.t === 'kicked') { kicked = true; showNotice(t('kicked')); }
@@ -813,10 +826,12 @@ function renderUsers(list) {
     const meta = document.createElement('div'); meta.className = 'meta';
     const b = document.createElement('b'); b.textContent = u.name + (u.id === me.id ? t('you') : '');
     if (ROLE[u.role]) { const t = document.createElement('span'); t.className = 'badge'; t.textContent = ROLE[u.role]; b.append(t); }
+    if (u.prem) { const pb = document.createElement('span'); pb.className = 'badge'; pb.textContent = t('premBadge'); b.append(pb); }
     const sm = document.createElement('small'); sm.textContent = 'id ' + u.id + ' · ' + (u.age < 60 ? u.age + t('sec') : Math.floor(u.age / 60) + t('min'));
     meta.append(b, sm); row.append(meta);
     if (u.id !== me.id && u.role !== 'owner') {
       if (me.role === 'owner') row.append(mkBtn(u.role === 'admin' ? t('unadmin') : t('mkAdmin'), () => wsSend({ t: 'role', id: u.id, role: u.role === 'admin' ? 'user' : 'admin' })));
+      if (me.role === 'owner') { row.append(mkBtn(t('prem30'), () => wsSend({ t: 'grant', id: u.id, days: 30 }))); if (u.prem) row.append(mkBtn(t('premOff'), () => wsSend({ t: 'grant', id: u.id, days: 0 }))); }
       if (me.role === 'owner' || u.role === 'user') row.append(mkBtn(t('kick'), () => wsSend({ t: 'kick', id: u.id })));
     }
     $('users').append(row);
@@ -841,7 +856,7 @@ function wipeAndReload() {
 $('logoutLink').onclick = e => {
   e.preventDefault();
   if (!ws || ws.readyState !== 1) return showNotice(t('noConn2'));
-  if (!confirm(t('logoutAsk') + (prem.on ? '\n\n' + t('logoutPrem') : ''))) return;
+  if (!confirm(t('logoutAsk'))) return;
   kicked = true; // не переподключаться
   wsSend({ t: 'logout' }); setTimeout(wipeAndReload, 3000);
 };
@@ -904,46 +919,34 @@ $('installBtn2').onclick = async () => {
     : t('otherInstall');
 };
 
-/* ---------- премиум (Telegram Stars) ---------- */
-let prem = { on: false, until: 0 }, premWait = -1, premPoll = 0;
-const premStat = m => $('premStatus').textContent = m || '';
-const premDate = ms => new Date(ms).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB');
-function renderPrem() {
-  $('premCard').hidden = me.role !== 'user'; // админам и владельцу премиум не нужен
-  $('premState').textContent = prem.on ? t('premUntil') + premDate(prem.until) : t('premPrice');
-  $('premBuy').textContent = prem.on ? t('premExtend') : t('premBuy');
-  $('premStudio').hidden = !prem.on;
+/* ---------- premium ---------- */
+let prevPrem = null;
+const premActive = () => (me.premium || 0) > Date.now();
+function onPremium() {
+  const act = premActive();
+  $('premActive').hidden = !(act || me.role !== 'user');
+  $('premActive').textContent = act ? t('premUntil') + new Date(me.premium).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB') : t('premStaff');
+  $('premOpen').hidden = !act; $('premBuy').hidden = act;
+  if (prevPrem === false && act) showNotice(t('premOn'));
+  prevPrem = act;
 }
-async function premCall(p) {
-  const r = await fetch(p, { method: 'POST', headers: { 'x-token': tok } });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = new Error('fail'); e.code = r.status; throw e; }
-  return j;
-}
-async function refreshPrem() {
+async function premLink(restore) {
+  const w = window.open('', '_blank'); // открываем окно сразу, чтобы Safari не заблокировал его после запроса
   try {
-    const j = await premCall('/api/premium');
-    prem = { on: !!j.premium, until: j.until || 0 }; renderPrem();
-    if (premWait >= 0 && prem.until > premWait) { premWait = -1; clearInterval(premPoll); $('premLink').hidden = true; premStat(t('premDone')); }
-  } catch (e) {}
+    const r = await fetch('/api/premium/link' + (restore ? '?r=1' : ''), { headers: { 'x-token': tok } });
+    if (!r.ok) throw 0;
+    const u = (await r.json()).url;
+    if (w) w.location = u; else location.href = u;
+  } catch (e) { if (w) w.close(); showNotice(t('premErr')); }
 }
-$('premBuy').onclick = async () => {
-  const b = $('premBuy'); b.disabled = true; premStat('');
-  try {
-    const j = await premCall('/api/premium/code');
-    premWait = prem.until; clearInterval(premPoll);
-    const end = Date.now() + 180000;
-    premPoll = setInterval(() => { if (Date.now() > end) { clearInterval(premPoll); premWait = -1; } else refreshPrem(); }, 4000);
-    $('premLink').href = j.link; $('premLink').hidden = false; premStat(t('premGo'));
-  } catch (e) { premStat(e.code === 429 ? t('tooOften') : t('premFail')); }
-  b.disabled = false;
-};
-$('premStudio').onclick = () => $('studioBtn').onclick();
-document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshPrem(); });
-renderPrem(); refreshPrem();
-
+$('premBuy').onclick = () => premLink(false);
+$('premRestore').onclick = e => { e.preventDefault(); premLink(true); };
+document.addEventListener('visibilitychange', () => { // вернулся из Telegram: подтянуть премиум
+  if (document.hidden || !entered) return;
+  if (!ws || ws.readyState > 1) { tries = 0; connect(); } else wsSend({ t: 'sync' });
+});
 // Студия грузится с сервера только для админов, владельца и премиума
-$('studioBtn').onclick = async () => {
+const openStudioFlow = async () => {
   try {
     if (!window.openStudio) {
       const r = await fetch('/studio.js', { headers: { 'x-token': tok } });
@@ -953,9 +956,11 @@ $('studioBtn').onclick = async () => {
     window.openStudio();
   } catch (e) { showNotice(t('studioOnly')); }
 };
+$('studioBtn').onclick = openStudioFlow; $('premOpen').onclick = openStudioFlow;
 $('pTheme').onclick = () => { theme = theme === 'light' ? 'dark' : 'light'; try { localStorage.setItem('lowend_theme', theme); } catch (e) {} applyTheme(); };
 $('langBtn').onclick = toggleLang; $('langBtnW').onclick = toggleLang;
 applyLang();
+onPremium();
 connect();
 </script>
 </body>
