@@ -2,7 +2,7 @@
 (() => {
   if (window.openStudio) return;
   const FONTS = {
-    old: '400 {s}px -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
+    old: '300 {s}px -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
     thin: '300 {s}px -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
     sans: '400 {s}px "Instrument Sans", sans-serif',
     display: '800 {s}px "Bricolage Grotesque", sans-serif',
@@ -121,16 +121,16 @@
       if (!buffer) throw new Error('Сначала загрузи трек на главной или выбери сохранённый.');
       initAudio(); if (ctx.state !== 'running') await ctx.resume();
       try { await document.fonts.load('800 40px "Bricolage Grotesque"'); await document.fonts.load('400 40px "Space Mono"'); await document.fonts.load('400 40px "Instrument Sans"'); } catch (e) {}
-      const type = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
+      const type = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1.4D401F,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
       if (!type) throw new Error('Этот браузер не умеет записывать видео.');
       const endT = d.end > 0 ? Math.min(d.end, buffer.duration) : buffer.duration; // «закончить на»: 0 = до конца трека
       const room = (endT - (d.start || 0)) / S.speed;
       if (room < 1) throw new Error('Между началом и концом меньше секунды. Трек длится ' + fmt(buffer.duration) + '.');
       const len = d.end > 0 ? room : (d.dur > 0 ? Math.min(d.dur, room) : room); // длина 0 = до конца трека
       const [w, h] = d.res.split('x').map(Number); cv.width = w; cv.height = h;
-      const g = cv.getContext('2d'), dest = ctx.createMediaStreamDestination(), fadeG = ctx.createGain(); nodes.out.connect(fadeG); fadeG.connect(dest);
+      const g = cv.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.textRendering = 'geometricPrecision'; g.fontKerning = 'normal'; const dest = ctx.createMediaStreamDestination(), fadeG = ctx.createGain(); nodes.out.connect(fadeG); fadeG.connect(dest);
       const stream = new MediaStream([...cv.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
-      const mr = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: Math.max(w, h) >= 1920 ? 8e6 : 5e6 });
+      const mr = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: Math.max(w, h) >= 1920 ? 20e6 : 12e6, audioBitsPerSecond: 256000 });
       const chunks = []; mr.ondataavailable = e => e.data.size && chunks.push(e.data);
       const stopped = new Promise(r => mr.onstop = r);
       draw(g, w, h, 0, 0); mr.start(1000); outEl.play().catch(() => {}); startAt(d.start || 0);
