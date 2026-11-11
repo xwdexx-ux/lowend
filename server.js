@@ -10,7 +10,7 @@ const saveRoles = () => { try { fs.writeFileSync(ROLES_FILE, JSON.stringify(role
 
 const hash = t => crypto.createHash('sha256').update(String(t)).digest('hex');
 const SYS = 'Ты помощник видеостудии сайта lowend. Верни ТОЛЬКО JSON без пояснений и без markdown с полями: ' +
-  'text (строка до 150 символов, \\n для переноса), font (thin|sans|display|mono|serif), size (16:9|9:16|1:1), ' +
+  'text (строка до 150 символов, \\n для переноса), font (thin|sans|display|mono|serif), resolution (одно из: 1022x576, 1280x720, 1920x1080, 720x1280, 1080x1920, 1080x1080; в current оно называется res; 1022x576 это размер по умолчанию, 16:9), ' +
   'duration (секунды, число от 5 до 300), track (точное название из savedTracks или null), color (hex текста), bg (hex фона), progress (true|false). ' +
   'Поля, которые пользователь не просил менять, оставляй такими же, как в current.';
 const aiHits = new Map();
