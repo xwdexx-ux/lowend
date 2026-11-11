@@ -186,6 +186,11 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
         <div id="users"></div>
         <div class="src" style="margin-top:12px"><input type="text" id="noticeText" maxlength="200" placeholder="Сообщение всем на сайте"><button class="btn ghost sm" id="noticeBtn">Отправить</button></div>
       </section>
+      <section class="card fx" id="appCard" hidden aria-label="Приложение">
+        <h2>Приложение lowend</h2>
+        <p class="hint" id="appHint">Поставь lowend на экран телефона как приложение: без адресной строки и открывается быстрее.</p>
+        <button class="btn" id="installBtn2" style="width:100%;margin-top:12px">Скачать приложение</button>
+      </section>
       <p class="hint" style="text-align:center;margin-top:22px"><a href="#" id="nickLink" style="color:inherit">сменить ник</a> · <a href="#" id="logoutLink" style="color:inherit">выйти</a></p>
       <p class="hint" style="text-align:center;margin-top:10px"><a href="#" id="ownerLink" style="color:inherit">вход для владельца</a></p>
     </div>
@@ -635,6 +640,14 @@ if (/iP(hone|ad|od)/.test(navigator.userAgent) && !standalone) $('installHint').
 let installEvt = null;
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('installBtn').hidden = false; });
 $('installBtn').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('installBtn').hidden = true; };
+if (!standalone) $('appCard').hidden = false; // кнопка на самой странице (экран приветствия возвращавшимся не показывается)
+addEventListener('appinstalled', () => { $('appCard').hidden = true; });
+$('installBtn2').onclick = async () => {
+  if (installEvt) { installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('installBtn').hidden = true; return; }
+  $('appHint').textContent = IOS
+    ? (/CriOS|FxiOS|EdgiOS|YaBrowser/.test(navigator.userAgent) ? 'Открой сайт в Safari: нажми «Поделиться» → «На экран Домой».' : 'Нажми «Поделиться» (квадрат со стрелкой) внизу экрана → «На экран Домой» → «Добавить».')
+    : 'В меню браузера выбери «Установить приложение» или «Добавить на главный экран».';
+};
 
 // Студия грузится с сервера только для админов и владельца
 $('studioBtn').onclick = async () => {
