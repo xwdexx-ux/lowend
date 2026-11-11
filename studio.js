@@ -140,7 +140,15 @@
       $('stOut').innerHTML = ''; const v = document.createElement('video'); v.src = url; v.controls = true; v.playsInline = true;
       const a = document.createElement('a'); a.href = url; a.download = (title || 'video') + '.' + ext; a.textContent = 'Скачать видео (' + ext + ')';
       a.className = 'btn'; a.style.cssText = 'display:block;text-align:center;margin-top:10px;text-decoration:none';
-      $('stOut').append(v, a); st.textContent = 'Готово!'; preview();
+      $('stOut').append(v);
+      // iPhone: через меню «Поделиться» видео сохраняется прямо в Фото, а не в «Файлы»
+      const probe = new File([blob], 'v.' + ext, { type: blob.type }), canShare = !!(navigator.canShare && navigator.canShare({ files: [probe] }));
+      if (canShare) {
+        const sv = document.createElement('button'); sv.className = 'btn'; sv.style.cssText = 'display:block;width:100%;margin-top:10px'; sv.textContent = 'Сохранить в Фото';
+        sv.onclick = async () => { try { await navigator.share({ files: [new File([blob], (title || 'video') + '.' + ext, { type: blob.type })] }); } catch (e) {} };
+        $('stOut').append(sv); a.className = 'btn ghost'; a.textContent = 'Скачать файл (в «Файлы»)';
+      }
+      $('stOut').append(a); st.textContent = canShare ? 'Готово! Нажми «Сохранить в Фото» и выбери «Сохранить видео».' : 'Готово!'; preview();
     } catch (e) { st.textContent = e.message || 'Не получилось записать видео.'; }
     busy = false; btn.disabled = false;
   }
