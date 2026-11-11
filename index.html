@@ -74,11 +74,23 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .item small{color:var(--muted);font-size:13px}
 .sm{padding:9px 13px;font-size:14px}
 .chip[aria-pressed=true]{background:var(--a);color:var(--onA);border-color:transparent;font-weight:600}
+#welcome{position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse at 50% 28%,#232323,#000 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;transition:opacity .6s,visibility .6s}
+#welcome.out{opacity:0;visibility:hidden}
+.w-sub{color:var(--muted);letter-spacing:.35em;text-transform:uppercase;font-size:12px}
+.w-logo{font:800 clamp(64px,22vw,150px)/1.05 "Bricolage Grotesque",sans-serif;letter-spacing:-.04em;margin-bottom:.2em;background:linear-gradient(180deg,#fff 0%,#a8a8a8 47%,#fff 50%,#4d4d4d 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-box-reflect:below -.1em linear-gradient(transparent 38%,rgba(255,255,255,.3))}
+.w-card{margin-top:30px;width:min(340px,100%);padding:18px;border-radius:22px;background:linear-gradient(135deg,#ffffff22,#ffffff08);border:1px solid #ffffff30;box-shadow:inset 0 1px 0 #ffffff45,0 20px 50px #000a;position:relative;overflow:hidden}
+.w-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 35%,#ffffff22 50%,transparent 65%);transform:translateX(-100%);animation:sheen 4s infinite}
+@keyframes sheen{to{transform:translateX(100%)}}
+@media(prefers-reduced-motion:reduce){.w-card::after{animation:none}}
+#nick{width:100%;background:#0006;border:1px solid var(--edge);border-radius:14px;padding:12px 14px;color:var(--text);font:inherit;text-align:center}
+#notice{position:fixed;top:12px;left:12px;right:12px;z-index:90;padding:14px 16px;border-radius:16px;background:#fff;color:#000;font-weight:600;box-shadow:0 10px 40px #000a;cursor:pointer}
+#notice[hidden]{display:none}
+.badge{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--a);color:var(--onA);margin-left:6px;font-weight:600}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header><div class="logo">lowend</div></header>
+  <header><div class="logo">lowend</div><span class="hint" id="online"></span></header>
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
@@ -113,6 +125,9 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
           <button class="chip" data-p="bass=14">Bass boost</button>
           <button class="chip" data-p="reverb=40">Reverb</button>
           <button class="chip" data-p="pan=70">8D</button>
+          <button class="chip" data-p="vol=170">Громче</button>
+          <button class="chip" data-p="echo=35">Эхо</button>
+          <button class="chip" data-p="muffle=60">Под водой</button>
           <button class="chip" data-reset>Сбросить</button>
         </div>
         <div style="height:16px"></div>
@@ -124,6 +139,14 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
           <input type="range" id="reverb" min="0" max="100" step="1" value="0"></div>
         <div class="ctl"><div class="top"><label for="pan">8D панорама</label><output id="panO">0%</output></div>
           <input type="range" id="pan" min="0" max="100" step="1" value="0"></div>
+        <div class="ctl"><div class="top"><label for="vol">Громкость</label><output id="volO">0</output></div>
+          <input type="range" id="vol" min="0" max="250" step="1" value="100"></div>
+        <div class="ctl"><div class="top"><label for="treble">Высокие</label><output id="trebleO">0</output></div>
+          <input type="range" id="treble" min="0" max="12" step="1" value="0"></div>
+        <div class="ctl"><div class="top"><label for="echo">Эхо</label><output id="echoO">0</output></div>
+          <input type="range" id="echo" min="0" max="100" step="1" value="0"></div>
+        <div class="ctl"><div class="top"><label for="muffle">Под водой</label><output id="muffleO">0</output></div>
+          <input type="range" id="muffle" min="0" max="100" step="1" value="0"></div>
         <button class="btn dl" id="dl" disabled>Скачать WAV</button>
         <button class="btn ghost dl" id="save" disabled style="margin-top:10px">Сохранить в библиотеку</button>
         <p class="status" id="status" role="status"></p>
@@ -134,13 +157,33 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
         <div id="lib"></div>
         <p class="hint" id="libEmpty">Пока пусто. Настрой звук и нажми «Сохранить в библиотеку».</p>
       </section>
+
+      <section class="card fx" id="admin" hidden aria-label="Админ-панель">
+        <h2>Админ-панель</h2>
+        <p class="hint" id="adminInfo"></p>
+        <div id="users"></div>
+        <div class="src" style="margin-top:12px"><input type="text" id="noticeText" maxlength="200" placeholder="Сообщение всем на сайте"><button class="btn ghost sm" id="noticeBtn">Отправить</button></div>
+      </section>
+      <p class="hint" style="text-align:center;margin-top:22px"><a href="#" id="ownerLink" style="color:inherit">вход для владельца</a></p>
     </div>
+  </div>
+</div>
+
+<div id="notice" hidden></div>
+
+<div id="welcome">
+  <div class="w-sub">добро пожаловать в</div>
+  <div class="w-logo">lowend</div>
+  <div class="w-card">
+    <input type="text" id="nick" maxlength="20" placeholder="Твой ник (необязательно)" autocomplete="off">
+    <button class="btn" id="enter" style="width:100%;margin-top:10px">Войти</button>
+    <p class="hint" id="onlineW" style="margin-top:10px"></p>
   </div>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
-const S = { speed: 1, bass: 0, reverb: 0, pan: 0 };
+const S = { speed: 1, bass: 0, reverb: 0, pan: 0, vol: 100, treble: 0, echo: 0, muffle: 0 };
 let ctx = null, nodes = null, analyser = null, buffer = null, src = null;
 let curFile = null, offset = 0, startCtx = 0, playing = false, dragging = false, title = '';
 
@@ -164,8 +207,14 @@ function buildChain(c, src, dest) {
   const conv = c.createConvolver(); conv.buffer = makeImpulse(c);
   const dry = c.createGain(), wet = c.createGain(), lim = c.createDynamicsCompressor();
   lim.threshold.value = -4; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .003; lim.release.value = .15;
-  src.connect(bass); bass.connect(dry); bass.connect(conv); conv.connect(wet);
-  dry.connect(lim); wet.connect(lim);
+  const treble = c.createBiquadFilter(); treble.type = 'highshelf'; treble.frequency.value = 6000;
+  const muffle = c.createBiquadFilter(); muffle.type = 'lowpass'; muffle.Q.value = .7; muffle.frequency.value = 20000;
+  const delay = c.createDelay(1), fb = c.createGain(), echo = c.createGain(), vol = c.createGain();
+  delay.delayTime.value = .32; fb.gain.value = .38;
+  src.connect(bass); bass.connect(treble); treble.connect(muffle);
+  muffle.connect(dry); muffle.connect(conv); conv.connect(wet);
+  muffle.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(echo);
+  dry.connect(vol); wet.connect(vol); echo.connect(vol); vol.connect(lim);
   let depth = null, out = lim;
   if (c.createStereoPanner) {
     const pan = c.createStereoPanner(), lfo = c.createOscillator(); depth = c.createGain();
@@ -173,10 +222,14 @@ function buildChain(c, src, dest) {
     lim.connect(pan); out = pan;
   }
   out.connect(dest);
-  return { bass, dry, wet, lim, depth };
+  return { bass, dry, wet, lim, depth, treble, muffle, echo, vol };
 }
 function applySettings(n) {
   n.bass.gain.value = S.bass;
+  n.treble.gain.value = S.treble;
+  n.muffle.frequency.value = Math.max(300, 20000 * Math.pow(1 - S.muffle / 100, 3));
+  n.echo.gain.value = S.echo / 100 * .7;
+  n.vol.gain.value = S.vol / 100;
   n.wet.gain.value = S.reverb / 100 * .9;
   n.dry.gain.value = 1 - S.reverb / 100 * .35;
   if (n.depth) n.depth.gain.value = S.pan / 100;
@@ -257,30 +310,34 @@ $('seek').onchange = e => {
 };
 
 /* ---------- настройки ---------- */
-function setSettings(speed, bass, reverb, pan = 0) {
+const IDS = ['speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle'];
+function setSettings(speed, bass, reverb, pan = 0, vol = 100, treble = 0, echo = 0, muffle = 0) {
   if (playing) { offset = pos(); startCtx = ctx.currentTime; }
-  S.speed = +speed; S.bass = +bass; S.reverb = +reverb; S.pan = +pan;
-  $('speed').value = S.speed; $('bass').value = S.bass; $('reverb').value = S.reverb; $('pan').value = S.pan;
-  ['speed', 'bass', 'reverb', 'pan'].forEach(id => fill($(id)));
+  Object.assign(S, { speed: +speed, bass: +bass, reverb: +reverb, pan: +pan, vol: +vol, treble: +treble, echo: +echo, muffle: +muffle });
+  IDS.forEach(id => { $(id).value = S[id]; fill($(id)); });
   $('speedO').textContent = S.speed.toFixed(2) + 'x';
   $('bassO').textContent = '+' + S.bass + ' dB';
   $('reverbO').textContent = S.reverb + '%';
   $('panO').textContent = S.pan + '%';
+  $('volO').textContent = S.vol + '%';
+  $('trebleO').textContent = '+' + S.treble + ' dB';
+  $('echoO').textContent = S.echo + '%';
+  $('muffleO').textContent = S.muffle + '%';
   if (src) src.playbackRate.value = S.speed;
   if (nodes) applySettings(nodes);
   if (typeof markChips === 'function') markChips();
 }
-['speed', 'bass', 'reverb', 'pan'].forEach(id => $(id).oninput = () => setSettings($('speed').value, $('bass').value, $('reverb').value, $('pan').value));
-const DEF = { speed: 1, bass: 0, reverb: 0, pan: 0 };
+IDS.forEach(id => $(id).oninput = () => setSettings(...IDS.map(i => $(i).value)));
+const DEF = { speed: 1, bass: 0, reverb: 0, pan: 0, vol: 100, treble: 0, echo: 0, muffle: 0 };
 const parseP = str => Object.fromEntries(str.split(',').map(x => x.split('=')).map(([k, v]) => [k, +v]));
 const isOn = b => Object.entries(parseP(b.dataset.p)).every(([k, v]) => S[k] === v);
 const markChips = () => document.querySelectorAll('.chip[data-p]').forEach(b => b.setAttribute('aria-pressed', isOn(b)));
 // Каждая кнопка меняет только свой параметр, остальное сохраняется. Повторное нажатие выключает эффект.
 document.querySelectorAll('.chip').forEach(b => b.onclick = () => {
-  if (b.hasAttribute('data-reset')) return setSettings(1, 0, 0, 0);
+  if (b.hasAttribute('data-reset')) return setSettings(1, 0, 0, 0, 100, 0, 0, 0);
   const p = parseP(b.dataset.p), on = isOn(b), n = { ...S };
   Object.keys(p).forEach(k => n[k] = on ? DEF[k] : p[k]);
-  setSettings(n.speed, n.bass, n.reverb, n.pan);
+  setSettings(...IDS.map(k => n[k]));
 });
 setSettings(1, 0, 0); fill($('seek'));
 
@@ -326,7 +383,7 @@ $('dl').onclick = async () => {
   if (!buffer) return;
   $('dl').disabled = true; status('Обрабатываю трек…');
   try {
-    const buf = buffer, tail = S.reverb > 0 ? 2.5 : 0;
+    const buf = buffer, tail = (S.reverb > 0 || S.echo > 0) ? 3 : 0;
     const off = new OfflineAudioContext(2, Math.ceil((buf.duration / S.speed + tail) * buf.sampleRate), buf.sampleRate);
     const s = off.createBufferSource(); s.buffer = buf; s.playbackRate.value = S.speed;
     applySettings(buildChain(off, s, off.destination)); s.start();
@@ -363,7 +420,7 @@ async function renderLib() {
     const sm = document.createElement('small');
     sm.textContent = t.speed.toFixed(2) + 'x · +' + t.bass + ' dB · реверб ' + t.reverb + '%' + (t.pan ? ' · 8D ' + t.pan + '%' : '');
     meta.append(b, sm);
-    const open = mkBtn('Открыть', async () => { await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    const open = mkBtn('Открыть', async () => { await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan, t.vol, t.treble, t.echo, t.muffle); window.scrollTo({ top: 0, behavior: 'smooth' }); });
     const del = mkBtn('✕', async () => { await tx('readwrite', s => s.delete(t.id)); renderLib(); }); del.setAttribute('aria-label', 'Удалить');
     row.append(meta, open, del); $('lib').append(row);
   });
@@ -371,11 +428,73 @@ async function renderLib() {
 $('save').onclick = async () => {
   if (!curFile) return;
   try {
-    await tx('readwrite', s => s.add({ title, blob: curFile, speed: S.speed, bass: S.bass, reverb: S.reverb, pan: S.pan, created: Date.now() }));
+    await tx('readwrite', s => s.add({ title, blob: curFile, speed: S.speed, bass: S.bass, reverb: S.reverb, pan: S.pan, vol: S.vol, treble: S.treble, echo: S.echo, muffle: S.muffle, created: Date.now() }));
     status('Сохранено в библиотеку.'); renderLib();
   } catch (e) { status('Не удалось сохранить в этом браузере.'); }
 };
 renderLib();
+/* ---------- онлайн, роли, админка ---------- */
+const hex = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('');
+const tok = (() => { try { let t = localStorage.getItem('lowend_token'); if (!t) { t = hex(); localStorage.setItem('lowend_token', t); } return t; } catch (e) { return hex(); } })();
+let nick = ''; try { nick = localStorage.getItem('lowend_nick') || ''; } catch (e) {}
+$('nick').value = nick;
+let ws = null, me = { id: '', role: 'user' }, entered = false, kicked = false, tries = 0, opened = false;
+const wsSend = o => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); };
+function connect() {
+  if (location.protocol === 'file:' || kicked) return;
+  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); } catch (e) { return; }
+  ws.onopen = () => { opened = true; tries = 0; if (entered) wsSend({ t: 'hello', token: tok, name: nick }); };
+  ws.onmessage = e => { try { onMsg(JSON.parse(e.data)); } catch (err) {} };
+  ws.onclose = () => { if (!kicked && (opened || tries < 3)) setTimeout(connect, Math.min(15000, 1500 * ++tries)); };
+}
+let noticeTimer;
+function showNotice(text) {
+  const n = $('notice'); n.textContent = text; n.hidden = false;
+  clearTimeout(noticeTimer); noticeTimer = setTimeout(() => n.hidden = true, 12000);
+}
+$('notice').onclick = () => $('notice').hidden = true;
+function onMsg(m) {
+  if (m.t === 'count') { const x = 'онлайн: ' + m.n; $('online').textContent = x; $('onlineW').textContent = 'Сейчас на сайте: ' + m.n; }
+  else if (m.t === 'me') { me = m; $('admin').hidden = m.role === 'user'; $('ownerLink').parentElement.hidden = m.role === 'owner'; }
+  else if (m.t === 'users') renderUsers(m.list);
+  else if (m.t === 'notice') showNotice((m.from ? m.from + ': ' : '') + m.text);
+  else if (m.t === 'kicked') { kicked = true; showNotice('Тебя отключили на 10 минут.'); }
+  else if (m.t === 'authfail') showNotice('Неверный ключ владельца.');
+}
+const ROLE = { owner: 'владелец', admin: 'админ', user: '' };
+function renderUsers(list) {
+  $('adminInfo').textContent = 'Сейчас онлайн: ' + list.length + (me.role === 'owner' ? ' · ты владелец' : ' · ты админ');
+  const rank = { owner: 0, admin: 1, user: 2 };
+  list.sort((a, b) => rank[a.role] - rank[b.role]);
+  $('users').innerHTML = '';
+  list.forEach(u => {
+    const row = document.createElement('div'); row.className = 'item';
+    const meta = document.createElement('div'); meta.className = 'meta';
+    const b = document.createElement('b'); b.textContent = u.name + (u.id === me.id ? ' (ты)' : '');
+    if (ROLE[u.role]) { const t = document.createElement('span'); t.className = 'badge'; t.textContent = ROLE[u.role]; b.append(t); }
+    const sm = document.createElement('small'); sm.textContent = 'id ' + u.id + ' · ' + (u.age < 60 ? u.age + ' с' : Math.floor(u.age / 60) + ' мин');
+    meta.append(b, sm); row.append(meta);
+    if (u.id !== me.id && u.role !== 'owner') {
+      if (me.role === 'owner') row.append(mkBtn(u.role === 'admin' ? 'Снять' : 'Админ', () => wsSend({ t: 'role', id: u.id, role: u.role === 'admin' ? 'user' : 'admin' })));
+      if (me.role === 'owner' || u.role === 'user') row.append(mkBtn('Кик', () => wsSend({ t: 'kick', id: u.id })));
+    }
+    $('users').append(row);
+  });
+}
+$('noticeBtn').onclick = () => { const t = $('noticeText').value.trim(); if (t) { wsSend({ t: 'notice', text: t }); $('noticeText').value = ''; } };
+$('ownerLink').onclick = e => {
+  e.preventDefault();
+  if (!ws || ws.readyState !== 1) return showNotice('Нет связи с сервером.');
+  const k = prompt('Ключ владельца:'); if (k) wsSend({ t: 'auth', key: k });
+};
+$('enter').onclick = () => {
+  nick = $('nick').value.trim().slice(0, 20);
+  try { localStorage.setItem('lowend_nick', nick); } catch (e) {}
+  entered = true; wsSend({ t: 'hello', token: tok, name: nick });
+  $('welcome').classList.add('out');
+};
+$('nick').addEventListener('keydown', e => e.key === 'Enter' && $('enter').click());
+connect();
 </script>
 </body>
 </html>
