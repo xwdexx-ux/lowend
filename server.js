@@ -8,8 +8,59 @@ let roles = {}; // хэш токена -> 'owner' | 'admin'
 try { roles = JSON.parse(fs.readFileSync(ROLES_FILE, 'utf8')); } catch (e) {}
 const saveRoles = () => { try { fs.writeFileSync(ROLES_FILE, JSON.stringify(roles)); } catch (e) {} };
 
+const hash = t => crypto.createHash('sha256').update(String(t)).digest('hex');
+const SYS = 'Ты помощник видеостудии сайта lowend. Верни ТОЛЬКО JSON без пояснений и без markdown с полями: ' +
+  'text (строка до 150 символов, \\n для переноса), font (thin|sans|display|mono|serif), size (16:9|9:16|1:1), ' +
+  'duration (секунды, число от 5 до 300), track (точное название из savedTracks или null), color (hex текста), bg (hex фона), progress (true|false). ' +
+  'Поля, которые пользователь не просил менять, оставляй такими же, как в current.';
+const aiHits = new Map();
+function studioAI(req, res, h) {
+  const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+  const GKEY = process.env.GEMINI_API_KEY, AKEY = process.env.ANTHROPIC_API_KEY;
+  if (!GKEY && !AKEY) return out(501, { error: 'ИИ не подключён: добавь на сервере GEMINI_API_KEY (бесплатно).' });
+  const hits = (aiHits.get(h) || []).filter(t => Date.now() - t < 3600000);
+  if (hits.length >= 20) return out(429, { error: 'Лимит: 20 запросов ИИ в час.' });
+  aiHits.set(h, [...hits, Date.now()]);
+  let body = ''; req.on('data', d => { body += d; if (body.length > 8000) req.destroy(); });
+  req.on('end', async () => {
+    try {
+      const b = JSON.parse(body);
+      const user = JSON.stringify({ request: String(b.prompt).slice(0, 500), savedTracks: b.tracks, current: b.current });
+      let text;
+      if (GKEY) { // Gemini (есть бесплатный тариф)
+        const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': GKEY },
+          body: JSON.stringify({ systemInstruction: { parts: [{ text: SYS }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json' } })
+        });
+        const j = await r.json();
+        text = ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join('');
+      } else { // Claude (платный)
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5', max_tokens: 400, system: SYS, messages: [{ role: 'user', content: user }] })
+        });
+        const j = await r.json();
+        text = (j.content || []).map(c => c.text || '').join('');
+      }
+      text = text.replace(/```json|```/g, '').trim();
+      out(200, JSON.parse(text));
+    } catch (e) { out(500, { error: 'ИИ не смог обработать запрос.' }); }
+  });
+}
+
 const server = http.createServer((req, res) => {
   if (req.url === '/health') return res.end('ok');
+  const staff = ['owner', 'admin'].includes(roles[hash(req.headers['x-token'] || '')]); // только админы и владелец
+  if (req.url === '/studio.js' || req.url === '/api/studio-ai') {
+    if (!staff) { res.writeHead(403); return res.end('forbidden'); }
+    if (req.url === '/api/studio-ai' && req.method === 'POST') return studioAI(req, res, hash(req.headers['x-token']));
+    return fs.readFile(path.join(__dirname, 'studio.js'), (err, data) => {
+      if (err) { res.writeHead(500); return res.end('studio.js not found'); }
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(data);
+    });
+  }
   fs.readFile(path.join(__dirname, 'index.html'), (err, data) => {
     if (err) { res.writeHead(500); return res.end('index.html not found'); }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
@@ -18,7 +69,6 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096 });
-const hash = t => crypto.createHash('sha256').update(String(t)).digest('hex');
 const clients = new Map(); // ws -> { h, id, name, since }
 const banned = new Map();  // хэш -> до какого времени бан
 const roleOf = h => roles[h] || 'user';
