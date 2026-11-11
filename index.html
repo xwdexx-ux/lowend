@@ -137,7 +137,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
-      <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="32" cy="32" r="27"/><circle cx="32" cy="32" r="19" opacity=".55"/><circle cx="32" cy="32" r="12" opacity=".55"/><circle cx="32" cy="32" r="6" fill="currentColor" stroke="none"/><path d="M14 17a24 24 0 0 1 10-8" opacity=".9"/></svg></span><img id="coverImg" alt=""></div>
+      <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="currentColor" aria-hidden="true"><rect x="6" y="26" width="4" height="12" rx="2"/><rect x="12" y="22" width="4" height="20" rx="2"/><rect x="18" y="18" width="4" height="28" rx="2"/><rect x="24" y="22" width="4" height="20" rx="2"/><rect x="30" y="12" width="4" height="40" rx="2"/><rect x="36" y="18" width="4" height="28" rx="2"/><rect x="42" y="24" width="4" height="16" rx="2"/><rect x="48" y="26" width="4" height="12" rx="2"/><rect x="54" y="28" width="4" height="8" rx="2"/></svg></span><img id="coverImg" alt=""></div>
       <canvas id="viz" width="400" height="56" aria-hidden="true"></canvas>
       <div class="title" id="name"></div>
       <div class="hint" id="sub"></div>
@@ -416,7 +416,12 @@ function setCover(c) {
   else if (c) { coverMime = c.mime; coverUrl = URL.createObjectURL(new Blob([c.data], { type: c.mime })); im.src = coverUrl; box.classList.add('has'); }
   else { box.classList.remove('has'); im.removeAttribute('src'); }
 }
-$('coverImg').onerror = () => { $('cover').classList.remove('has'); };
+let lastName = '';
+$('coverImg').onerror = () => {
+  const was = $('coverImg').src.startsWith('blob:');
+  $('cover').classList.remove('has');
+  if (was && lastName) findCoverOnline(lastName, ++coverTok);
+};
 
 /* обложка по названию, если в файле её нет (каталог iTunes через /api/search) */
 let coverTok = 0;
@@ -531,11 +536,11 @@ async function loadFile(f, nm, trusted) {
   initAudio(); status(t('loading'));
   try {
     const ab = await f.arrayBuffer();
-    const art = findCover(ab);
+    const art = findCover(ab); if (art && art.data) art.data = art.data.slice();
     const buf = await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej));
     stopSrc(); playing = false; outEl.pause(); buffer = buf; offset = 0;
     curFile = f; setCover(art); setTitle(cleanName(nm || f.name), t('len') + fmt(buf.duration));
-    const ctok = ++coverTok; if (!art) findCoverOnline(nm || f.name, ctok);
+    lastName = nm || f.name; const ctok = ++coverTok; if (!art) findCoverOnline(lastName, ctok);
     ['play', 'seek', 'dl', 'save'].forEach(id => $(id).disabled = false);
     setPlayUI(); status('');
   } catch (e) { status(t('readFail')); }
