@@ -137,7 +137,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
-      <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 24h10l14-11v38L18 40H8z" fill="currentColor"/><path d="M41 22c3.5 3 3.5 17 0 20"/><path d="M48 15c7.5 6.5 7.5 27.5 0 34"/><path d="M55 8c11 10 11 38 0 48" opacity=".6"/></svg></span></div>
+      <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="32" cy="32" r="27"/><circle cx="32" cy="32" r="19" opacity=".55"/><circle cx="32" cy="32" r="12" opacity=".55"/><circle cx="32" cy="32" r="6" fill="currentColor" stroke="none"/><path d="M14 17a24 24 0 0 1 10-8" opacity=".9"/></svg></span><img id="coverImg" alt=""></div>
       <canvas id="viz" width="400" height="56" aria-hidden="true"></canvas>
       <div class="title" id="name"></div>
       <div class="hint" id="sub"></div>
@@ -355,9 +355,105 @@ const fill = el => el.style.setProperty('--p', (el.value - el.min) / (el.max - e
 const status = m => $('status').textContent = m || '';
 const fmt = t => isFinite(t) ? Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0') : '0:00';
 const cleanName = n => { try { n = decodeURIComponent(n); } catch (e) {} return n.replace(/\.(mp3|m4a|wav|ogg|aac|flac|opus)$/i, ''); };
+/* ---------- обложка из файла (mp3: ID3, m4a/mp4: covr) ---------- */
+let coverUrl = '', coverMime = '';
+function findCover(ab) {
+  try {
+    const b = new Uint8Array(ab), dv = new DataView(ab), n = b.length;
+    const str = (o, l) => String.fromCharCode.apply(null, b.subarray(o, o + l));
+    if (n > 10 && str(0, 3) === 'ID3') {
+      const ver = b[3], end = Math.min(n, 10 + ((b[6] & 127) << 21 | (b[7] & 127) << 14 | (b[8] & 127) << 7 | (b[9] & 127)));
+      let o = 10;
+      if (b[5] & 0x40) { o += ver === 4 ? ((b[10] & 127) << 21 | (b[11] & 127) << 14 | (b[12] & 127) << 7 | (b[13] & 127)) : dv.getUint32(10) + 4; }
+      let best = null;
+      while (o + 10 < end) {
+        let id, sz, hl;
+        if (ver === 2) { id = str(o, 3); sz = b[o + 3] << 16 | b[o + 4] << 8 | b[o + 5]; hl = 6; }
+        else { id = str(o, 4); sz = ver === 4 ? ((b[o + 4] & 127) << 21 | (b[o + 5] & 127) << 14 | (b[o + 6] & 127) << 7 | (b[o + 7] & 127)) : dv.getUint32(o + 4); hl = 10; }
+        if (!sz || !/^[A-Z0-9]{3,4}$/.test(id)) break;
+        if (id === 'APIC' || id === 'PIC') {
+          let q = o + hl; const enc = b[q++]; let mime;
+          if (id === 'PIC') { const f = str(q, 3).toUpperCase(); q += 3; mime = f === 'PNG' ? 'image/png' : 'image/jpeg'; }
+          else { let e = q; while (e < o + hl + sz && b[e] !== 0) e++; mime = str(q, e - q) || 'image/jpeg'; q = e + 1; }
+          const type = b[q++];
+          if (enc === 1 || enc === 2) { while (q + 1 < o + hl + sz && !(b[q] === 0 && b[q + 1] === 0)) q += 2; q += 2; }
+          else { while (q < o + hl + sz && b[q] !== 0) q++; q++; }
+          const data = b.subarray(q, o + hl + sz);
+          if (data.length > 100) {
+            if (/^image\/(jpg|jpeg)$/i.test(mime) || /^image\/png$/i.test(mime) || /^image\/(webp|gif)$/i.test(mime)) {} else mime = data[0] === 0x89 ? 'image/png' : 'image/jpeg';
+            const c = { mime: mime.toLowerCase() === 'image/jpg' ? 'image/jpeg' : mime, data };
+            if (type === 3) return c;
+            if (!best) best = c;
+          }
+        }
+        o += hl + sz;
+      }
+      if (best) return best;
+    }
+    const walk = (s0, e0, path) => {
+      let o = s0;
+      while (o + 8 <= e0) {
+        let sz = dv.getUint32(o); const tp = str(o + 4, 4); let hl = 8;
+        if (sz === 1) { sz = dv.getUint32(o + 12); hl = 16; } else if (sz === 0) sz = e0 - o;
+        if (sz < hl || o + sz > e0) break;
+        if (tp === 'data' && path === 'covr') {
+          const fl = dv.getUint32(o + 8) & 0xffffff, data = b.subarray(o + 16, o + sz);
+          if (data.length > 100) return { mime: fl === 14 ? 'image/png' : 'image/jpeg', data };
+        } else if (tp === 'moov' || tp === 'udta' || tp === 'ilst' || tp === 'covr') { const r = walk(o + hl, o + sz, tp); if (r) return r; }
+        else if (tp === 'meta') { const r = walk(o + hl + 4, o + sz, tp); if (r) return r; }
+        o += sz;
+      }
+      return null;
+    };
+    if (n > 12 && str(4, 4) === 'ftyp') return walk(0, n, '');
+  } catch (e) {}
+  return null;
+}
+function setCover(c) {
+  const box = $('cover'), im = $('coverImg');
+  if (coverUrl) { if (coverUrl.startsWith('blob:')) URL.revokeObjectURL(coverUrl); coverUrl = ''; coverMime = ''; }
+  if (c && c.url) { coverUrl = c.url; im.src = c.url; box.classList.add('has'); }
+  else if (c) { coverMime = c.mime; coverUrl = URL.createObjectURL(new Blob([c.data], { type: c.mime })); im.src = coverUrl; box.classList.add('has'); }
+  else { box.classList.remove('has'); im.removeAttribute('src'); }
+}
+$('coverImg').onerror = () => { $('cover').classList.remove('has'); };
+
+/* обложка по названию, если в файле её нет (каталог iTunes через /api/search) */
+let coverTok = 0;
+const normT = x => ' ' + String(x || '').toLowerCase().replace(/[^a-z\u0430-\u044f\u0451\u00c0-\u024f0-9]+/g, ' ').trim() + ' ';
+function guessQuery(n) {
+  return String(n || '').replace(/_+/g, ' ').replace(/\.(mp3|m4a|mp4|wav|ogg|aac|flac|opus)$/i, '').replace(/[\[\(\{][^\]\)\}]*[\]\)\}]/g, ' ')
+    .replace(/\b(speed ?up|sped ?up|slowed|reverb|bass ?boost(ed)?|8d|nightcore|remix|official|audio|video|lyrics?|hq|hd)\b/gi, ' ')
+    .replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
+}
+function pickCover(list, q) {
+  const nq = normT(q); let best = null;
+  for (const r of list) {
+    const nt = normT(r.title), na = normT(r.artist);
+    if (nt.trim().length < 2 || !r.art || !nq.includes(nt)) continue;
+    const both = nq.includes(na);
+    if (nt.trim().length <= 3 && !both) continue;
+    if (both) return r;
+    if (!best) best = r;
+  }
+  return best;
+}
+async function findCoverOnline(name, tok) {
+  const q = guessQuery(name);
+  if (q.length < 2) return;
+  try {
+    const r = await fetch('/api/search?q=' + encodeURIComponent(q));
+    if (!r.ok) return;
+    const hit = pickCover(await r.json(), q);
+    if (!hit || tok !== coverTok || $('cover').classList.contains('has')) return;
+    setCover({ url: String(hit.art).replace('200x200', '600x600') });
+    setTitle(title);
+  } catch (e) {}
+}
+
 function setTitle(t, sub) {
   title = t; $('name').textContent = t; if (sub !== undefined) $('sub').textContent = sub;
-  if ('mediaSession' in navigator && window.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({ title: t, artist: 'lowend' });
+  if ('mediaSession' in navigator && window.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({ title: t, artist: 'lowend', artwork: coverUrl ? [{ src: coverUrl, sizes: '512x512', type: coverMime }] : [] });
 }
 
 /* ---------- аудио-цепочка ---------- */
@@ -435,9 +531,11 @@ async function loadFile(f, nm, trusted) {
   initAudio(); status(t('loading'));
   try {
     const ab = await f.arrayBuffer();
+    const art = findCover(ab);
     const buf = await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej));
     stopSrc(); playing = false; outEl.pause(); buffer = buf; offset = 0;
-    curFile = f; setTitle(cleanName(nm || f.name), t('len') + fmt(buf.duration));
+    curFile = f; setCover(art); setTitle(cleanName(nm || f.name), t('len') + fmt(buf.duration));
+    const ctok = ++coverTok; if (!art) findCoverOnline(nm || f.name, ctok);
     ['play', 'seek', 'dl', 'save'].forEach(id => $(id).disabled = false);
     setPlayUI(); status('');
   } catch (e) { status(t('readFail')); }
