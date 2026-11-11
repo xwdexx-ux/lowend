@@ -49,10 +49,52 @@ function studioAI(req, res, h) {
   });
 }
 
+// Поиск треков: каталог iTunes (30-секундные превью), всё идёт через сервер, чтобы не упираться в CORS
+const searchHits = new Map();
+const ipOf = req => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+function limited(req, max) {
+  const ip = ipOf(req), now = Date.now();
+  if (searchHits.size > 5000) searchHits.clear();
+  const h = (searchHits.get(ip) || []).filter(t => now - t < 60000);
+  if (h.length >= max) return true;
+  searchHits.set(ip, [...h, now]); return false;
+}
+async function musicSearch(req, res) {
+  const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+  if (limited(req, 30)) return out(429, { error: 'Слишком часто, подожди минуту.' });
+  const q = (new URL(req.url, 'http://x').searchParams.get('q') || '').trim().slice(0, 100);
+  if (!q) return out(200, []);
+  try {
+    const r = await fetch('https://itunes.apple.com/search?media=music&entity=song&limit=15&term=' + encodeURIComponent(q));
+    const j = await r.json();
+    out(200, (j.results || []).filter(x => x.previewUrl).map(x => ({
+      title: x.trackName, artist: x.artistName, preview: x.previewUrl,
+      art: String(x.artworkUrl100 || '').replace('100x100', '200x200')
+    })));
+  } catch (e) { out(502, { error: 'Поиск сейчас недоступен.' }); }
+}
+const previewOk = u => u.protocol === 'https:' && /(^|\.)(mzstatic\.com|itunes\.apple\.com)$/.test(u.hostname);
+async function musicPreview(req, res) {
+  if (limited(req, 20)) { res.writeHead(429); return res.end('limit'); }
+  try {
+    const u = new URL(new URL(req.url, 'http://x').searchParams.get('u') || '');
+    if (!previewOk(u)) throw 0;
+    const r = await fetch(u);
+    if (!r.ok || !previewOk(new URL(r.url))) throw 0;
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 8e6) throw 0;
+    res.writeHead(200, { 'Content-Type': r.headers.get('content-type') || 'audio/mp4', 'Cache-Control': 'public, max-age=3600' });
+    res.end(buf);
+  } catch (e) { res.writeHead(502); res.end('bad'); }
+}
+
 const APP_FILES = { '/manifest.webmanifest': 'application/manifest+json', '/sw.js': 'application/javascript; charset=utf-8',
   '/icon-192.png': 'image/png', '/icon-512.png': 'image/png', '/apple-touch-icon.png': 'image/png' };
 const server = http.createServer((req, res) => {
   if (req.url === '/health') return res.end('ok');
+  const pth = req.url.split('?')[0];
+  if (pth === '/api/search') return musicSearch(req, res);
+  if (pth === '/api/preview') return musicPreview(req, res);
   const staff = ['owner', 'admin'].includes(roles[hash(req.headers['x-token'] || '')]); // только админы и владелец
   if (req.url === '/studio.js' || req.url === '/api/studio-ai') {
     if (!staff) { res.writeHead(403); return res.end('forbidden'); }

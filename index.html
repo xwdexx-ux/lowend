@@ -116,6 +116,14 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
     </section>
 
     <div>
+      <section class="card" aria-label="Поиск" style="margin-bottom:18px">
+        <h2>Поиск треков</h2>
+        <div class="src"><input type="text" id="q" maxlength="100" placeholder="Название или исполнитель" autocomplete="off"><button class="btn" id="qBtn">Найти</button></div>
+        <p class="hint" style="margin-top:8px">Находит 30-секундные превью. Полный трек загрузи сам ниже.</p>
+        <div id="found"></div>
+        <p class="status" id="qStatus" role="status"></p>
+      </section>
+
       <section class="card" aria-label="Источник">
         <h2>1. Трек</h2>
         <label class="drop" id="drop">
@@ -443,6 +451,42 @@ $('save').onclick = async () => {
   } catch (e) { status('Не удалось сохранить в этом браузере.'); }
 };
 renderLib();
+/* ---------- поиск треков (iTunes, превью 30 с) ---------- */
+const qs = m => $('qStatus').textContent = m || '';
+async function doSearch() {
+  const q = $('q').value.trim(); if (!q) return;
+  $('qBtn').disabled = true; qs('Ищу…'); $('found').innerHTML = '';
+  try {
+    const r = await fetch('/api/search?q=' + encodeURIComponent(q));
+    const list = await r.json();
+    if (!r.ok) throw new Error(list.error);
+    qs(list.length ? '' : 'Ничего не нашлось.');
+    list.forEach(t => {
+      const row = document.createElement('div'); row.className = 'item';
+      if (String(t.art).startsWith('https://')) {
+        const im = document.createElement('img'); im.src = t.art; im.alt = ''; im.width = 44; im.height = 44; im.style.cssText = 'border-radius:8px;flex:none;object-fit:cover';
+        row.append(im);
+      }
+      const meta = document.createElement('div'); meta.className = 'meta';
+      const b = document.createElement('b'); b.textContent = t.title;
+      const sm = document.createElement('small'); sm.textContent = t.artist;
+      meta.append(b, sm);
+      const open = mkBtn('Открыть', async () => {
+        qs('Загружаю превью…');
+        try {
+          const rr = await fetch('/api/preview?u=' + encodeURIComponent(t.preview));
+          if (!rr.ok) throw 0;
+          await loadFile(await rr.blob(), t.artist + ' — ' + t.title, true);
+          qs(''); window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (e) { qs('Не удалось загрузить превью.'); }
+      });
+      row.append(meta, open); $('found').append(row);
+    });
+  } catch (e) { qs(e.message || 'Поиск недоступен.'); }
+  $('qBtn').disabled = false;
+}
+$('qBtn').onclick = doSearch;
+$('q').addEventListener('keydown', e => e.key === 'Enter' && doSearch());
 /* ---------- онлайн, роли, админка ---------- */
 const hex = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('');
 const tok = (() => { try { let t = localStorage.getItem('lowend_token'); if (!t) { t = hex(); localStorage.setItem('lowend_token', t); } return t; } catch (e) { return hex(); } })();
