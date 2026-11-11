@@ -196,6 +196,11 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
           <button class="chip" data-p="vol=170" data-i="chipLoud"></button>
           <button class="chip" data-p="echo=35" data-i="chipEcho"></button>
           <button class="chip" data-p="muffle=60" data-i="chipWater"></button>
+          <button class="chip" data-p="sub=60" data-i="chipSub"></button>
+          <button class="chip" data-p="dist=35" data-i="chipDist"></button>
+          <button class="chip" data-p="speed=1.2,bass=18,sub=60,dist=25,vol=170" data-i="chipBBS"></button>
+          <button class="chip" data-p="speed=0.85,reverb=45,bass=4" data-i="chipSR"></button>
+          <button class="chip" data-p="speed=1.3,treble=3" data-i="chipNC"></button>
           <button class="chip" data-reset data-i="chipReset"></button>
         </div>
         <div style="height:16px"></div>
@@ -216,6 +221,10 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
           <input type="range" id="pan" min="0" max="100" step="1" value="0"></div>
 <div class="ctl"><div class="top"><label for="muffle" data-i="lMuffle"></label><output id="muffleO">0</output></div>
           <input type="range" id="muffle" min="0" max="100" step="1" value="0"></div>
+<div class="ctl"><div class="top"><label for="sub" data-i="lSub"></label><output id="subO">0%</output></div>
+          <input type="range" id="sub" min="0" max="100" step="1" value="0"></div>
+<div class="ctl"><div class="top"><label for="dist" data-i="lDist"></label><output id="distO">0%</output></div>
+          <input type="range" id="dist" min="0" max="100" step="1" value="0"></div>
 </div>
         <button class="btn dl" id="dl" disabled data-i="dlWav"></button>
         <button class="btn ghost dl" id="save" disabled style="margin-top:10px" data-i="saveLib"></button>
@@ -297,6 +306,7 @@ ru: {
   pick:'Выбери трек', pickSub:'Загрузи песню ниже', len:'Длина: ', nosound:'Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.',
   searchH:'Поиск треков', searchPh:'Название или исполнитель', find:'Найти', searchHint:'Находит 30-секундные превью. Полный трек загрузи сам ниже.',
   h1:'1. Трек', drop:'Нажми и выбери песню (mp3, m4a, wav)', h2:'2. Звук', chipLoud:'Громче', chipEcho:'Эхо', chipWater:'Под водой', chipReset:'Сбросить',
+  lSub:'Саб-бас', lDist:'Искажение', chipSub:'Саб-бас', chipDist:'Искажение', chipBBS:'Бас + ускоренный', chipSR:'Замедленный + реверб', chipNC:'Найткор',
   lSpeed:'Скорость', lBass:'Бас', lReverb:'Реверб', lPan:'8D панорама', lVol:'Громкость', lTreble:'Высокие', lEcho:'Эхо', lMuffle:'Под водой',
   dlWav:'Скачать WAV', saveLib:'Сохранить в библиотеку', h3:'3. Сохранённое', libEmpty:'Пока пусто. Настрой звук и нажми «Сохранить в библиотеку».',
   premH:'Premium', premSub:'150 ⭐ Telegram Stars на 30 дней',
@@ -332,6 +342,7 @@ en: {
   pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
   searchH:'Track search', searchPh:'Title or artist', find:'Search', searchHint:'Finds 30-second previews. Upload the full track yourself below.',
   h1:'1. Track', drop:'Tap and choose a song (mp3, m4a, wav)', h2:'2. Sound', chipLoud:'Louder', chipEcho:'Echo', chipWater:'Underwater', chipReset:'Reset',
+  lSub:'Sub bass', lDist:'Distortion', chipSub:'Sub bass', chipDist:'Distortion', chipBBS:'Bass boosted + sped up', chipSR:'Slowed + reverb', chipNC:'Nightcore',
   lSpeed:'Speed', lBass:'Bass', lReverb:'Reverb', lPan:'8D pan', lVol:'Volume', lTreble:'Treble', lEcho:'Echo', lMuffle:'Underwater',
   dlWav:'Download WAV', saveLib:'Save to library', h3:'3. Saved', libEmpty:'Nothing here yet. Set up the sound and tap “Save to library”.',
   premH:'Premium', premSub:'150 ⭐ Telegram Stars for 30 days',
@@ -388,7 +399,7 @@ function applyLang() {
   if (!$('installHint').hidden) {} // текст подсказки уже обновлён через data-i
 }
 function toggleLang() { lang = lang === 'ru' ? 'en' : 'ru'; try { localStorage.setItem('lowend_lang', lang); } catch (e) {} applyLang(); }
-const S = { speed: 1, bass: 0, reverb: 0, pan: 0, vol: 100, treble: 0, echo: 0, muffle: 0 };
+const S = { speed: 1, bass: 0, reverb: 0, pan: 0, vol: 100, treble: 0, echo: 0, muffle: 0, sub: 0, dist: 0 };
 let ctx = null, nodes = null, analyser = null, buffer = null, src = null;
 let curFile = null, offset = 0, startCtx = 0, playing = false, dragging = false, title = '';
 
@@ -517,7 +528,9 @@ function buildChain(c, src, dest) {
   const muffle = c.createBiquadFilter(); muffle.type = 'lowpass'; muffle.Q.value = .7; muffle.frequency.value = 20000;
   const delay = c.createDelay(1), fb = c.createGain(), echo = c.createGain(), vol = c.createGain();
   delay.delayTime.value = .32; fb.gain.value = .38;
-  src.connect(bass); bass.connect(treble); treble.connect(muffle);
+  const sub = c.createBiquadFilter(); sub.type = 'peaking'; sub.frequency.value = 50; sub.Q.value = 1; // узкий саб-бас, как в «bass boosted»
+  const shaper = c.createWaveShaper(); shaper.oversample = '4x'; // искажение; без кривой звук идёт без изменений
+  src.connect(sub); sub.connect(bass); bass.connect(shaper); shaper.connect(treble); treble.connect(muffle);
   muffle.connect(dry); muffle.connect(conv); conv.connect(wet);
   muffle.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(echo);
   dry.connect(vol); wet.connect(vol); echo.connect(vol); vol.connect(lim);
@@ -528,9 +541,13 @@ function buildChain(c, src, dest) {
     lim.connect(pan); out = pan;
   }
   out.connect(dest);
-  return { bass, dry, wet, lim, depth, treble, muffle, echo, vol, out };
+  return { bass, sub, shaper, dry, wet, lim, depth, treble, muffle, echo, vol, out };
 }
+const distCurve = k => { const drive = 1 + k / 100 * 14, N = 2048, c = new Float32Array(N), nm = Math.tanh(drive);
+  for (let i = 0; i < N; i++) c[i] = Math.tanh((i / (N - 1) * 2 - 1) * drive) / nm; return c; };
 function applySettings(n) {
+  n.sub.gain.value = S.sub / 100 * 18;
+  if (n.dv !== S.dist) { n.shaper.curve = S.dist ? distCurve(S.dist) : null; n.dv = S.dist; }
   n.bass.gain.value = S.bass;
   n.treble.gain.value = S.treble;
   n.muffle.frequency.value = Math.max(300, 20000 * Math.pow(1 - S.muffle / 100, 3));
@@ -618,10 +635,10 @@ $('seek').onchange = e => {
 };
 
 /* ---------- настройки ---------- */
-const IDS = ['speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle'];
-function setSettings(speed, bass, reverb, pan = 0, vol = 100, treble = 0, echo = 0, muffle = 0) {
+const IDS = ['speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle', 'sub', 'dist'];
+function setSettings(speed, bass, reverb, pan = 0, vol = 100, treble = 0, echo = 0, muffle = 0, sub = 0, dist = 0) {
   if (playing) { offset = pos(); startCtx = ctx.currentTime; }
-  Object.assign(S, { speed: +speed, bass: +bass, reverb: +reverb, pan: +pan, vol: +vol, treble: +treble, echo: +echo, muffle: +muffle });
+  Object.assign(S, { speed: +speed, bass: +bass, reverb: +reverb, pan: +pan, vol: +vol, treble: +treble, echo: +echo, muffle: +muffle, sub: +sub, dist: +dist });
   IDS.forEach(id => { $(id).value = S[id]; fill($(id)); });
   $('speedO').textContent = S.speed.toFixed(2) + 'x';
   $('bassO').textContent = '+' + S.bass + ' dB';
@@ -631,18 +648,20 @@ function setSettings(speed, bass, reverb, pan = 0, vol = 100, treble = 0, echo =
   $('trebleO').textContent = '+' + S.treble + ' dB';
   $('echoO').textContent = S.echo + '%';
   $('muffleO').textContent = S.muffle + '%';
+  $('subO').textContent = S.sub + '%';
+  $('distO').textContent = S.dist + '%';
   if (src) src.playbackRate.value = S.speed;
   if (nodes) applySettings(nodes);
   if (typeof markChips === 'function') markChips();
 }
 IDS.forEach(id => $(id).oninput = () => setSettings(...IDS.map(i => $(i).value)));
-const DEF = { speed: 1, bass: 0, reverb: 0, pan: 0, vol: 100, treble: 0, echo: 0, muffle: 0 };
+const DEF = { speed: 1, bass: 0, reverb: 0, pan: 0, vol: 100, treble: 0, echo: 0, muffle: 0, sub: 0, dist: 0 };
 const parseP = str => Object.fromEntries(str.split(',').map(x => x.split('=')).map(([k, v]) => [k, +v]));
 const isOn = b => Object.entries(parseP(b.dataset.p)).every(([k, v]) => S[k] === v);
 const markChips = () => document.querySelectorAll('.chip[data-p]').forEach(b => b.setAttribute('aria-pressed', isOn(b)));
 // Каждая кнопка меняет только свой параметр, остальное сохраняется. Повторное нажатие выключает эффект.
 document.querySelectorAll('.chip').forEach(b => b.onclick = () => {
-  if (b.hasAttribute('data-reset')) return setSettings(1, 0, 0, 0, 100, 0, 0, 0);
+  if (b.hasAttribute('data-reset')) return setSettings(1, 0, 0, 0, 100, 0, 0, 0, 0, 0);
   const p = parseP(b.dataset.p), on = isOn(b), n = { ...S };
   Object.keys(p).forEach(k => n[k] = on ? DEF[k] : p[k]);
   setSettings(...IDS.map(k => n[k]));
@@ -728,7 +747,7 @@ async function renderLib() {
     const sm = document.createElement('small');
     sm.textContent = t.speed.toFixed(2) + 'x · +' + t.bass + ' dB' + LANG[lang].rev + t.reverb + '%' + (t.pan ? ' · 8D ' + t.pan + '%' : '');
     meta.append(b, sm);
-    const open = mkBtn(LANG[lang].open, async () => { await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan, t.vol, t.treble, t.echo, t.muffle); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    const open = mkBtn(LANG[lang].open, async () => { await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan, t.vol, t.treble, t.echo, t.muffle, t.sub || 0, t.dist || 0); window.scrollTo({ top: 0, behavior: 'smooth' }); });
     const del = mkBtn('✕', async () => { await tx('readwrite', s => s.delete(t.id)); renderLib(); }); del.setAttribute('aria-label', LANG[lang].del);
     row.append(meta, open, del); $('lib').append(row);
   });
@@ -736,7 +755,7 @@ async function renderLib() {
 $('save').onclick = async () => {
   if (!curFile) return;
   try {
-    await tx('readwrite', s => s.add({ title, blob: curFile, speed: S.speed, bass: S.bass, reverb: S.reverb, pan: S.pan, vol: S.vol, treble: S.treble, echo: S.echo, muffle: S.muffle, created: Date.now() }));
+    await tx('readwrite', s => s.add({ title, blob: curFile, speed: S.speed, bass: S.bass, reverb: S.reverb, pan: S.pan, vol: S.vol, treble: S.treble, echo: S.echo, muffle: S.muffle, sub: S.sub, dist: S.dist, created: Date.now() }));
     status(t('saved')); renderLib();
   } catch (e) { status(t('saveFail')); }
 };
