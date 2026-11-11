@@ -9,9 +9,24 @@
     serif: 'italic 400 {s}px Georgia, serif'
   };
   const FONT_NAMES = { thin: 'Тонкий (как в твоём видео)', sans: 'Обычный', display: 'Жирный', mono: 'Моно', serif: 'Курсив с засечками' };
-  const RES = { '1280x720': '16:9 · 720p', '1920x1080': '16:9 · 1080p', '720x1280': '9:16 · 720p', '1080x1920': '9:16 · 1080p', '1080x1080': '1:1 · 1080' };
+  const RES = { '1022x576': '16:9 · 1022×576 (как в твоём видео)', '1280x720': '16:9 · 720p', '1920x1080': '16:9 · 1080p', '720x1280': '9:16 · 720p', '1080x1920': '9:16 · 1080p', '1080x1080': '1:1 · 1080' };
   const SIZE_RES = { '16:9': '1280x720', '9:16': '720x1280', '1:1': '1080x1080' };
-  const d = { text: '', font: 'thin', size: 9, color: '#ffffff', bg: '#000000', res: '1280x720', dur: 60, progress: false };
+  const d = { text: '', font: 'thin', size: 9, color: '#ffffff', bg: '#000000', res: '1022x576', dur: 60, progress: false };
+  // студия помнит последние настройки, поэтому «как в прошлый раз» работает и после перезагрузки
+  try { Object.assign(d, JSON.parse(localStorage.getItem('lowend_studio') || '{}')); } catch (e) {}
+  if (!FONTS[d.font]) d.font = 'thin';
+  if (!RES[d.res]) d.res = '1022x576';
+  const keep = () => { try { localStorage.setItem('lowend_studio', JSON.stringify(d)); } catch (e) {} };
+  // пресеты: сохраняют стиль (без текста), чтобы выбирать «мой стиль» в один клик
+  const STYLE = ['font', 'size', 'color', 'bg', 'res', 'dur', 'progress'], PKEY = 'lowend_presets';
+  const getP = () => { try { return JSON.parse(localStorage.getItem(PKEY) || '{}'); } catch (e) { return {}; } };
+  const setP = o => { try { localStorage.setItem(PKEY, JSON.stringify(o)); } catch (e) {} };
+  function fillPresets(pick) {
+    const sel = $('stPreset'); sel.innerHTML = '';
+    const first = document.createElement('option'); first.value = ''; first.textContent = '— выбрать —'; sel.append(first);
+    Object.keys(getP()).forEach(k => { const o = document.createElement('option'); o.value = o.textContent = k; sel.append(o); });
+    if (pick) sel.value = pick;
+  }
   let root = null, cv = null, busy = false;
 
   const css = document.createElement('style');
@@ -50,6 +65,7 @@
     }
   }
   function preview() {
+    keep();
     const [w, h] = d.res.split('x').map(Number);
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     draw(cv.getContext('2d'), w, h, .3);
@@ -130,6 +146,8 @@
       <div class="f"><label for="stAI">ИИ-помощник (необязательно)</label>
         <div class="src"><input type="text" id="stAI" placeholder="Например: как в прошлый раз, но текст lowend и 30 секунд"><button class="btn ghost sm" id="stAIgo">ИИ</button></div></div>
       <div class="f"><label for="stTrack">Трек</label><select id="stTrack"></select></div>
+      <div class="f"><label for="stPreset">Мои пресеты (стиль без текста)</label>
+        <div class="src"><select id="stPreset"></select><button class="btn ghost sm" id="stPSave">Сохранить</button><button class="btn ghost sm" id="stPDel" aria-label="Удалить пресет">✕</button></div></div>
       <div class="f"><label for="stText">Текст</label><textarea id="stText"></textarea></div>
       <div class="two">
         <div class="f"><label for="stFont">Шрифт</label><select id="stFont">${Object.entries(FONT_NAMES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
@@ -151,6 +169,17 @@
     bind('stText', 'text'); bind('stFont', 'font'); bind('stRes', 'res'); bind('stColor', 'color'); bind('stBg', 'bg'); bind('stProg', 'progress');
     bind('stSize', 'size', Number); bind('stDur', 'dur', v => Math.max(5, Math.min(300, +v || 60)));
     $('stProg').onchange = $('stProg').oninput;
+    fillPresets();
+    $('stPreset').onchange = e => {
+      const pr = getP()[e.target.value]; if (!pr) return;
+      STYLE.forEach(k => { if (pr[k] !== undefined) d[k] = pr[k]; });
+      if (!FONTS[d.font]) d.font = 'thin'; if (!RES[d.res]) d.res = '1022x576'; sync();
+    };
+    $('stPSave').onclick = () => {
+      const name = (prompt('Название пресета:') || '').trim().slice(0, 30); if (!name) return;
+      const all = getP(); all[name] = Object.fromEntries(STYLE.map(k => [k, d[k]])); setP(all); fillPresets(name);
+    };
+    $('stPDel').onclick = () => { const k = $('stPreset').value; if (!k) return; const all = getP(); delete all[k]; setP(all); fillPresets(); };
   }
   window.openStudio = async () => {
     if (!root) await build();
