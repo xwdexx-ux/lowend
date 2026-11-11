@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lowend</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="lowend">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;600&family=Space+Mono:wght@400;700&display=swap">
 <style>
 :root{--a:#fff;--b:#8a8a8a;--ink:#000;--text:#fff;--muted:#8a8a8a;--glass:#0d0d0d;--edge:#242424;--track:#2a2a2a;--thumb:#fff;--onA:#000;--playbg:#fff;--playfg:#000;--field:#000;color-scheme:dark}
@@ -178,6 +185,8 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
   <div class="w-card">
     <input type="text" id="nick" maxlength="20" placeholder="Твой ник (необязательно)" autocomplete="off">
     <button class="btn" id="enter" style="width:100%;margin-top:10px">Войти</button>
+    <button class="btn ghost" id="installBtn" hidden style="width:100%;margin-top:8px">Установить приложение</button>
+    <p class="hint" id="installHint" hidden style="margin-top:10px">Чтобы установить: «Поделиться» → «На экран Домой»</p>
     <p class="hint" id="onlineW" style="margin-top:10px"></p>
   </div>
 </div>
@@ -495,6 +504,14 @@ $('enter').onclick = () => {
   $('welcome').classList.add('out');
 };
 $('nick').addEventListener('keydown', e => e.key === 'Enter' && $('enter').click());
+/* ---------- приложение (PWA) ---------- */
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('/sw.js').catch(() => {});
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+if (/iP(hone|ad|od)/.test(navigator.userAgent) && !standalone) $('installHint').hidden = false;
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('installBtn').hidden = false; });
+$('installBtn').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('installBtn').hidden = true; };
+
 // Студия грузится с сервера только для админов и владельца
 $('studioBtn').onclick = async () => {
   try {
