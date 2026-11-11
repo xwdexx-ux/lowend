@@ -14,14 +14,15 @@
   const FSTYLE = { old: { sx: .82, lh: 1.02, dy: .024, noBlank: true } };
   const RES = { '1022x576': '16:9 · 1022×576 (как в твоём видео)', '1280x720': '16:9 · 720p', '1920x1080': '16:9 · 1080p', '720x1280': '9:16 · 720p', '1080x1920': '9:16 · 1080p', '1080x1080': '1:1 · 1080' };
   const SIZE_RES = { '16:9': '1280x720', '9:16': '720x1280', '1:1': '1080x1080' };
-  const d = { text: '', font: 'old', size: 15, color: '#ffffff', bg: '#000000', res: '1022x576', dur: 60, progress: false, fade: 2.6 };
+  const d = { text: '', font: 'old', size: 15, color: '#ffffff', bg: '#000000', res: '1022x576', dur: 60, progress: false, fade: 2.6, start: 0, afade: 3 };
   // студия помнит последние настройки, поэтому «как в прошлый раз» работает и после перезагрузки
   try { Object.assign(d, JSON.parse(localStorage.getItem('lowend_studio2') || '{}')); } catch (e) {}
+  d.start = 0; // начало трека не запоминаем: у каждого трека своё
   if (!FONTS[d.font]) d.font = 'old';
   if (!RES[d.res]) d.res = '1022x576';
   const keep = () => { try { localStorage.setItem('lowend_studio2', JSON.stringify(d)); } catch (e) {} };
   // пресеты: сохраняют стиль (без текста), чтобы выбирать «мой стиль» в один клик
-  const STYLE = ['font', 'size', 'color', 'bg', 'res', 'dur', 'progress', 'fade'], PKEY = 'lowend_presets';
+  const STYLE = ['font', 'size', 'color', 'bg', 'res', 'dur', 'progress', 'fade', 'afade'], PKEY = 'lowend_presets';
   const getP = () => { try { return JSON.parse(localStorage.getItem(PKEY) || '{}'); } catch (e) { return {}; } };
   const setP = o => { try { localStorage.setItem(PKEY, JSON.stringify(o)); } catch (e) {} };
   function fillPresets(pick) {
@@ -83,7 +84,7 @@
   }
   function sync() {
     $('stText').value = d.text; $('stFont').value = d.font; $('stSize').value = d.size; $('stColor').value = d.color;
-    $('stBg').value = d.bg; $('stRes').value = d.res; $('stDur').value = d.dur; $('stFade').value = d.fade; $('stProg').checked = d.progress; preview();
+    $('stBg').value = d.bg; $('stRes').value = d.res; $('stDur').value = d.dur; $('stFade').value = d.fade; $('stStart').value = d.start; $('stAfade').value = d.afade; $('stProg').checked = d.progress; preview();
   }
   function applyAI(j) {
     if (typeof j.text === 'string') d.text = j.text.slice(0, 200);
@@ -122,20 +123,26 @@
       try { await document.fonts.load('800 40px "Bricolage Grotesque"'); await document.fonts.load('400 40px "Space Mono"'); await document.fonts.load('400 40px "Instrument Sans"'); } catch (e) {}
       const type = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
       if (!type) throw new Error('Этот браузер не умеет записывать видео.');
+      const room = (buffer.duration - (d.start || 0)) / S.speed; // сколько трека осталось с выбранного места
+      if (room < 1) throw new Error('Начало слишком близко к концу: трек длится ' + fmt(buffer.duration) + '.');
+      const len = Math.min(d.dur, room); // если трек короче, видео заканчивается вместе с ним
       const [w, h] = d.res.split('x').map(Number); cv.width = w; cv.height = h;
-      const g = cv.getContext('2d'), dest = ctx.createMediaStreamDestination(); nodes.out.connect(dest);
+      const g = cv.getContext('2d'), dest = ctx.createMediaStreamDestination(), fadeG = ctx.createGain(); nodes.out.connect(fadeG); fadeG.connect(dest);
       const stream = new MediaStream([...cv.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
       const mr = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: Math.max(w, h) >= 1920 ? 8e6 : 5e6 });
       const chunks = []; mr.ondataavailable = e => e.data.size && chunks.push(e.data);
       const stopped = new Promise(r => mr.onstop = r);
-      draw(g, w, h, 0, 0); mr.start(1000); outEl.play().catch(() => {}); startAt(0);
-      const t0 = performance.now(), ms = d.dur * 1000;
+      draw(g, w, h, 0, 0); mr.start(1000); outEl.play().catch(() => {}); startAt(d.start || 0);
+      const af = Math.min(d.afade || 0, len), now = ctx.currentTime; // звук плавно затихает к концу видео
+      fadeG.gain.setValueAtTime(1, now);
+      if (af > 0) { fadeG.gain.setValueAtTime(1, now + len - af); fadeG.gain.linearRampToValueAtTime(0, now + len); }
+      const t0 = performance.now(), ms = len * 1000;
       await new Promise(done => (function tick() {
         const el = performance.now() - t0; draw(g, w, h, Math.min(1, el / ms), el / 1000);
-        st.textContent = 'Записываю: ' + Math.round(el / 1000) + ' / ' + d.dur + ' с. Не закрывай страницу и не блокируй экран.';
+        st.textContent = 'Записываю: ' + Math.round(el / 1000) + ' / ' + Math.round(len) + ' с. Не закрывай страницу и не блокируй экран.';
         el >= ms ? done() : requestAnimationFrame(tick);
       })());
-      mr.stop(); await stopped; stopSrc(); playing = false; outEl.pause(); setPlayUI(); nodes.out.disconnect(dest);
+      mr.stop(); await stopped; stopSrc(); playing = false; outEl.pause(); setPlayUI(); nodes.out.disconnect(fadeG); fadeG.disconnect();
       const blob = new Blob(chunks, { type: type.split(';')[0] }), url = URL.createObjectURL(blob), ext = type.startsWith('video/mp4') ? 'mp4' : 'webm';
       $('stOut').innerHTML = ''; const v = document.createElement('video'); v.src = url; v.controls = true; v.playsInline = true;
       const a = document.createElement('a'); a.href = url; a.download = (title || 'video') + '.' + ext; a.textContent = 'Скачать видео (' + ext + ')';
@@ -172,6 +179,8 @@
         <div class="f"><label for="stSize">Размер текста</label><input type="range" id="stSize" min="4" max="16" step="1"></div>
         <div class="f"><label for="stDur">Длина (секунд)</label><input type="number" id="stDur" min="5" max="300"></div>
         <div class="f"><label for="stFade">Появление из темноты (сек)</label><input type="number" id="stFade" min="0" max="10" step="0.1"></div>
+        <div class="f"><label for="stStart">Начать трек с (сек)</label><input type="number" id="stStart" min="0" step="0.1"></div>
+        <div class="f"><label for="stAfade">Затухание звука в конце (сек)</label><input type="number" id="stAfade" min="0" max="15" step="0.5"></div>
       </div>
       <label style="display:flex;gap:8px;align-items:center;margin-top:14px"><input type="checkbox" id="stProg"> Полоска прогресса внизу</label>
       <button class="btn" id="stGo" style="width:100%;margin-top:16px">Сделать видео</button>
@@ -185,6 +194,7 @@
     bind('stText', 'text'); bind('stFont', 'font'); bind('stRes', 'res'); bind('stColor', 'color'); bind('stBg', 'bg'); bind('stProg', 'progress');
     bind('stSize', 'size', Number); bind('stDur', 'dur', v => Math.max(5, Math.min(300, +v || 60)));
     bind('stFade', 'fade', v => Math.max(0, Math.min(10, +v || 0)));
+    bind('stStart', 'start', v => Math.max(0, +v || 0)); bind('stAfade', 'afade', v => Math.max(0, Math.min(15, +v || 0)));
     $('stProg').onchange = $('stProg').oninput;
     fillPresets();
     $('stPreset').onchange = e => {
