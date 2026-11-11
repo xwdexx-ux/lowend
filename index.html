@@ -644,13 +644,8 @@ if (!standalone) $('appCard').hidden = false; // кнопка на самой с
 addEventListener('appinstalled', () => { $('appCard').hidden = true; });
 $('installBtn2').onclick = async () => {
   if (installEvt) { installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('installBtn').hidden = true; return; }
-  if (IOS && navigator.share && !/CriOS|FxiOS|EdgiOS|YaBrowser/.test(navigator.userAgent)) { // iPhone: сразу открываем меню «Поделиться»
-    $('appHint').textContent = 'В открывшемся меню прокрути вниз и выбери «На экран Домой».';
-    try { await navigator.share({ title: 'lowend', url: location.origin }); } catch (e) {}
-    return;
-  }
   $('appHint').textContent = IOS
-    ? (/CriOS|FxiOS|EdgiOS|YaBrowser/.test(navigator.userAgent) ? 'Открой сайт в Safari: нажми «Поделиться» → «На экран Домой».' : 'Нажми «Поделиться» (квадрат со стрелкой) внизу экрана → «На экран Домой» → «Добавить».')
+    ? (/CriOS|FxiOS|EdgiOS|YaBrowser/.test(navigator.userAgent) ? 'Открой сайт в Safari: нажми «Поделиться» → «На экран Домой».' : 'В нижней панели Safari нажми «Поделиться» (квадрат со стрелкой; на новых iPhone он внутри меню «•••» справа внизу), прокрути список вниз и выбери «На экран Домой» → «Добавить».')
     : 'В меню браузера выбери «Установить приложение» или «Добавить на главный экран».';
 };
 
