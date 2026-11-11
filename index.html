@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lowend</title>
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#000000" id="metaTheme">
+<script>try{var _t=localStorage.getItem("lowend_theme");if(_t==="light"){document.documentElement.setAttribute("data-theme","light");document.getElementById("metaTheme").content="#ffffff"}var _l=localStorage.getItem("lowend_lang");document.documentElement.lang=_l==="ru"?"ru":"en"}catch(e){}</script>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -90,7 +91,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 @keyframes sheen{to{transform:translateX(100%)}}
 @media(prefers-reduced-motion:reduce){.w-card::after{animation:none}}
 #nick{width:100%;background:#0006;border:1px solid var(--edge);border-radius:14px;padding:12px 14px;color:var(--text);font:inherit;text-align:center}
-#notice{position:fixed;top:12px;left:12px;right:12px;z-index:90;padding:14px 16px;border-radius:16px;background:#fff;color:#000;font-weight:600;box-shadow:0 10px 40px #000a;cursor:pointer}
+#notice{position:fixed;top:12px;left:12px;right:12px;z-index:90;padding:14px 16px;border-radius:16px;background:var(--text);color:var(--ink);font-weight:600;box-shadow:0 10px 40px #000a;cursor:pointer}
 #notice[hidden]{display:none}
 .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--a);color:var(--onA);margin-left:6px;font-weight:600}
 
@@ -99,100 +100,115 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 #profile{position:fixed;inset:0;z-index:95;background:#000c;display:flex;align-items:center;justify-content:center;padding:20px}
 #profile[hidden]{display:none}
 #profile .btn{width:100%;margin-top:8px}
+
+.langb{font-weight:700;letter-spacing:.04em;min-width:46px}
+#langBtnW{position:absolute;top:14px;right:14px}
+#welcome{position:fixed}
+:root[data-theme=light]{--a:#000;--b:#555;--ink:#fff;--text:#000;--muted:#666;--glass:#f3f3f3;--edge:#dadada;--track:#d2d2d2;--thumb:#000;--onA:#fff;--playbg:#000;--playfg:#fff;--field:#fff;color-scheme:light}
+[data-theme=light] .cover{background:#e8e8e8}
+[data-theme=light] .av{background:#e8e8e8}
+[data-theme=light] .src input::placeholder,[data-theme=light] #nick::placeholder{color:#00000066}
+[data-theme=light] #welcome{background:radial-gradient(ellipse at 50% 28%,#fff,#e4e4e4 70%)}
+[data-theme=light] .w-logo{background:linear-gradient(180deg,#000 0%,#5a5a5a 47%,#000 50%,#b5b5b5 100%);-webkit-background-clip:text;background-clip:text}
+[data-theme=light] .w-card{background:linear-gradient(135deg,#00000012,#00000005);border-color:#00000026;box-shadow:inset 0 1px 0 #fff,0 20px 50px #0002}
+[data-theme=light] .w-card::after{background:linear-gradient(110deg,transparent 35%,#ffffff99 50%,transparent 65%)}
+[data-theme=light] #nick{background:#fff}
+[data-theme=light] input[type=range]::-webkit-slider-thumb{box-shadow:0 2px 8px #0004}
+[data-theme=light] .cover{box-shadow:none}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header><div class="logo">lowend</div><div style="display:flex;align-items:center;gap:12px"><span class="hint" id="online"></span><button class="av" id="avBtn" aria-label="Профиль"></button></div></header>
+  <header><div class="logo">lowend</div><div style="display:flex;align-items:center;gap:12px"><span class="hint" id="online"></span><button class="btn ghost sm langb" id="langBtn">RU</button><button class="av" id="avBtn" data-aria="profile" aria-label="Profile"></button></div></header>
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
       <div class="cover" id="cover"><span>♪</span></div>
       <canvas id="viz" width="400" height="56" aria-hidden="true"></canvas>
-      <div class="title" id="name">Выбери трек</div>
-      <div class="hint" id="sub">Загрузи песню ниже</div>
+      <div class="title" id="name"></div>
+      <div class="hint" id="sub"></div>
       <div class="bar">
-        <button class="play" id="play" disabled aria-label="Играть">▶</button>
+        <button class="play" id="play" disabled data-aria="play" aria-label="Play">▶</button>
         <div class="seekbox">
-          <input type="range" id="seek" min="0" max="1000" value="0" disabled aria-label="Перемотка">
+          <input type="range" id="seek" min="0" max="1000" value="0" disabled data-aria="seek" aria-label="Seek">
           <div class="time"><span id="cur">0:00</span><span id="dur">0:00</span></div>
         </div>
       </div>
-      <p class="hint" style="margin-top:12px">Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.</p>
+      <p class="hint" style="margin-top:12px" data-i="nosound"></p>
     </section>
 
     <div>
       <section class="card" aria-label="Поиск" style="margin-bottom:18px">
-        <h2>Поиск треков</h2>
-        <div class="src"><input type="text" id="q" maxlength="100" placeholder="Название или исполнитель" autocomplete="off"><button class="btn" id="qBtn">Найти</button></div>
-        <p class="hint" style="margin-top:8px">Находит 30-секундные превью. Полный трек загрузи сам ниже.</p>
+        <h2 data-i="searchH"></h2>
+        <div class="src"><input type="text" id="q" maxlength="100" data-ph="searchPh" placeholder="Title or artist" autocomplete="off"><button class="btn" id="qBtn" data-i="find"></button></div>
+        <p class="hint" style="margin-top:8px" data-i="searchHint"></p>
         <div id="found"></div>
         <p class="status" id="qStatus" role="status"></p>
       </section>
 
       <section class="card" aria-label="Источник">
-        <h2>1. Трек</h2>
+        <h2 data-i="h1"></h2>
         <label class="drop" id="drop">
           <input type="file" id="file">
-          Нажми и выбери песню (mp3, m4a, wav)
+          <span data-i="drop"></span>
         </label>
       </section>
 
       <section class="card fx" aria-label="Эффекты">
-        <h2>2. Звук</h2>
+        <h2 data-i="h2"></h2>
         <div class="chips">
           <button class="chip" data-p="speed=0.85">Slowed</button>
           <button class="chip" data-p="speed=1.25">Speed up</button>
           <button class="chip" data-p="bass=14">Bass boost</button>
           <button class="chip" data-p="reverb=40">Reverb</button>
           <button class="chip" data-p="pan=70">8D</button>
-          <button class="chip" data-p="vol=170">Громче</button>
-          <button class="chip" data-p="echo=35">Эхо</button>
-          <button class="chip" data-p="muffle=60">Под водой</button>
-          <button class="chip" data-reset>Сбросить</button>
+          <button class="chip" data-p="vol=170" data-i="chipLoud"></button>
+          <button class="chip" data-p="echo=35" data-i="chipEcho"></button>
+          <button class="chip" data-p="muffle=60" data-i="chipWater"></button>
+          <button class="chip" data-reset data-i="chipReset"></button>
         </div>
         <div style="height:16px"></div>
-        <div class="ctl"><div class="top"><label for="speed">Скорость</label><output id="speedO">1.00x</output></div>
+        <div class="ctl"><div class="top"><label for="speed" data-i="lSpeed"></label><output id="speedO">1.00x</output></div>
           <input type="range" id="speed" min="0.3" max="2" step="0.01" value="1"></div>
-        <div class="ctl"><div class="top"><label for="bass">Бас</label><output id="bassO">+0 dB</output></div>
+        <div class="ctl"><div class="top"><label for="bass" data-i="lBass"></label><output id="bassO">+0 dB</output></div>
           <input type="range" id="bass" min="0" max="40" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="reverb">Реверб</label><output id="reverbO">0%</output></div>
+        <div class="ctl"><div class="top"><label for="reverb" data-i="lReverb"></label><output id="reverbO">0%</output></div>
           <input type="range" id="reverb" min="0" max="100" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="pan">8D панорама</label><output id="panO">0%</output></div>
+        <div class="ctl"><div class="top"><label for="pan" data-i="lPan"></label><output id="panO">0%</output></div>
           <input type="range" id="pan" min="0" max="100" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="vol">Громкость</label><output id="volO">0</output></div>
+        <div class="ctl"><div class="top"><label for="vol" data-i="lVol"></label><output id="volO">0</output></div>
           <input type="range" id="vol" min="0" max="400" step="1" value="100"></div>
-        <div class="ctl"><div class="top"><label for="treble">Высокие</label><output id="trebleO">0</output></div>
+        <div class="ctl"><div class="top"><label for="treble" data-i="lTreble"></label><output id="trebleO">0</output></div>
           <input type="range" id="treble" min="0" max="20" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="echo">Эхо</label><output id="echoO">0</output></div>
+        <div class="ctl"><div class="top"><label for="echo" data-i="lEcho"></label><output id="echoO">0</output></div>
           <input type="range" id="echo" min="0" max="100" step="1" value="0"></div>
-        <div class="ctl"><div class="top"><label for="muffle">Под водой</label><output id="muffleO">0</output></div>
+        <div class="ctl"><div class="top"><label for="muffle" data-i="lMuffle"></label><output id="muffleO">0</output></div>
           <input type="range" id="muffle" min="0" max="100" step="1" value="0"></div>
-        <button class="btn dl" id="dl" disabled>Скачать WAV</button>
-        <button class="btn ghost dl" id="save" disabled style="margin-top:10px">Сохранить в библиотеку</button>
+        <button class="btn dl" id="dl" disabled data-i="dlWav"></button>
+        <button class="btn ghost dl" id="save" disabled style="margin-top:10px" data-i="saveLib"></button>
         <p class="status" id="status" role="status"></p>
       </section>
 
       <section class="card fx" aria-label="Библиотека">
-        <h2>3. Сохранённое</h2>
+        <h2 data-i="h3"></h2>
         <div id="lib"></div>
-        <p class="hint" id="libEmpty">Пока пусто. Настрой звук и нажми «Сохранить в библиотеку».</p>
+        <p class="hint" id="libEmpty" data-i="libEmpty"></p>
       </section>
 
       <section class="card fx" id="admin" hidden aria-label="Админ-панель">
-        <h2>Админ-панель</h2>
+        <h2 data-i="adminH"></h2>
         <p class="hint" id="adminInfo"></p>
-        <button class="btn" id="studioBtn" style="width:100%;margin:6px 0 12px">Студия: сделать видео</button>
+        <button class="btn" id="studioBtn" style="width:100%;margin:6px 0 12px" data-i="studioBtn"></button>
         <div id="users"></div>
-        <div class="src" style="margin-top:12px"><input type="text" id="noticeText" maxlength="200" placeholder="Сообщение всем на сайте"><button class="btn ghost sm" id="noticeBtn">Отправить</button></div>
+        <div class="src" style="margin-top:12px"><input type="text" id="noticeText" maxlength="200" data-ph="noticePh" placeholder="Message to everyone"><button class="btn ghost sm" id="noticeBtn" data-i="send"></button></div>
       </section>
       <section class="card fx" id="appCard" hidden aria-label="Приложение">
-        <h2>Приложение lowend</h2>
-        <p class="hint" id="appHint">Поставь lowend на экран телефона как приложение: без адресной строки и открывается быстрее.</p>
-        <button class="btn" id="installBtn2" style="width:100%;margin-top:12px">Скачать приложение</button>
+        <h2 data-i="appH"></h2>
+        <p class="hint" id="appHint" data-i="appHint"></p>
+        <button class="btn" id="installBtn2" style="width:100%;margin-top:12px" data-i="appBtn"></button>
       </section>
-      <p class="hint" style="text-align:center;margin-top:22px"><a href="#" id="nickLink" style="color:inherit">сменить ник</a> · <a href="#" id="logoutLink" style="color:inherit">выйти</a></p>
-      <p class="hint" style="text-align:center;margin-top:10px"><a href="#" id="ownerLink" style="color:inherit">вход для владельца</a></p>
+      <p class="hint" style="text-align:center;margin-top:22px"><a href="#" id="nickLink" style="color:inherit" data-i="changeNick"></a> · <a href="#" id="logoutLink" style="color:inherit" data-i="logout"></a></p>
+      <p class="hint" style="text-align:center;margin-top:10px"><a href="#" id="ownerLink" style="color:inherit" data-i="ownerLogin"></a></p>
     </div>
   </div>
 </div>
@@ -205,28 +221,116 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
     <div class="title" id="pName" style="text-align:center;margin-top:14px"></div>
     <div class="hint" id="pRole"></div>
     <input type="file" id="avFile" accept="image/*" hidden>
-    <button class="btn" id="avPick" style="margin-top:16px">Сменить фото</button>
-    <button class="btn ghost" id="avDel">Убрать фото</button>
-    <button class="btn ghost" id="pNick">Сменить ник</button>
-    <button class="btn ghost" id="pOut">Выйти</button>
-    <button class="btn ghost" id="pClose">Закрыть</button>
+    <button class="btn" id="avPick" style="margin-top:16px" data-i="pPhoto"></button>
+    <button class="btn ghost" id="avDel" data-i="pPhotoDel"></button>
+    <button class="btn ghost" id="pNick" data-i="pNick"></button>
+    <button class="btn ghost" id="pTheme"></button>
+    <button class="btn ghost" id="pOut" data-i="pOut"></button>
+    <button class="btn ghost" id="pClose" data-i="pClose"></button>
   </div>
 </div>
 
 <div id="welcome">
-  <div class="w-sub">добро пожаловать в</div>
+  <button class="btn ghost sm langb" id="langBtnW">RU</button>
+  <div class="w-sub" data-i="welcome"></div>
   <div class="w-logo">lowend</div>
   <div class="w-card">
-    <input type="text" id="nick" maxlength="20" placeholder="Твой ник (необязательно)" autocomplete="off">
-    <button class="btn" id="enter" style="width:100%;margin-top:10px">Войти</button>
-    <button class="btn ghost" id="installBtn" hidden style="width:100%;margin-top:8px">Установить приложение</button>
-    <p class="hint" id="installHint" hidden style="margin-top:10px">Чтобы установить: «Поделиться» → «На экран Домой»</p>
+    <input type="text" id="nick" maxlength="20" data-ph="nickPh" placeholder="Your nickname (optional)" autocomplete="off">
+    <button class="btn" id="enter" style="width:100%;margin-top:10px" data-i="enter"></button>
+    <button class="btn ghost" id="installBtn" hidden style="width:100%;margin-top:8px" data-i="install"></button>
+    <p class="hint" id="installHint" hidden style="margin-top:10px" data-i="installHint"></p>
     <p class="hint" id="onlineW" style="margin-top:10px"></p>
   </div>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
+
+/* ---------- язык и тема ---------- */
+const LANG = {
+ru: {
+  pick:'Выбери трек', pickSub:'Загрузи песню ниже', len:'Длина: ', nosound:'Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.',
+  searchH:'Поиск треков', searchPh:'Название или исполнитель', find:'Найти', searchHint:'Находит 30-секундные превью. Полный трек загрузи сам ниже.',
+  h1:'1. Трек', drop:'Нажми и выбери песню (mp3, m4a, wav)', h2:'2. Звук', chipLoud:'Громче', chipEcho:'Эхо', chipWater:'Под водой', chipReset:'Сбросить',
+  lSpeed:'Скорость', lBass:'Бас', lReverb:'Реверб', lPan:'8D панорама', lVol:'Громкость', lTreble:'Высокие', lEcho:'Эхо', lMuffle:'Под водой',
+  dlWav:'Скачать WAV', saveLib:'Сохранить в библиотеку', h3:'3. Сохранённое', libEmpty:'Пока пусто. Настрой звук и нажми «Сохранить в библиотеку».',
+  adminH:'Админ-панель', studioBtn:'Студия: сделать видео', noticePh:'Сообщение всем на сайте', send:'Отправить',
+  appH:'Приложение lowend', appHint:'Поставь lowend на экран телефона как приложение: без адресной строки и открывается быстрее.', appBtn:'Скачать приложение',
+  changeNick:'сменить ник', logout:'выйти', ownerLogin:'вход для владельца',
+  pPhoto:'Сменить фото', pPhotoDel:'Убрать фото', pNick:'Сменить ник', pOut:'Выйти', pClose:'Закрыть',
+  themeToLight:'Светлая тема', themeToDark:'Тёмная тема',
+  welcome:'добро пожаловать в', nickPh:'Твой ник (необязательно)', enter:'Войти', install:'Установить приложение', installHint:'Чтобы установить: «Поделиться» → «На экран Домой»',
+  profile:'Профиль', play:'Играть', seek:'Перемотка',
+  online:'онлайн: ', onlineW:'Сейчас на сайте: ',
+  needAudio:'Нужен аудиофайл: mp3, wav, m4a или ogg.', loading:'Загружаю трек…', readFail:'Не получилось прочитать файл. Попробуй mp3 или m4a.',
+  processing:'Обрабатываю трек…', dlDone:'Готово, файл скачан.', dlFail:'Не получилось обработать файл. Попробуй другой формат.',
+  saved:'Сохранено в библиотеку.', saveFail:'Не удалось сохранить в этом браузере.', rev:' · реверб ', open:'Открыть', del:'Удалить',
+  searching:'Ищу…', nothing:'Ничего не нашлось.', loadingPrev:'Загружаю превью…', prevFail:'Не удалось загрузить превью.', searchFail:'Поиск сейчас недоступен.', tooOften:'Слишком часто, подожди минуту.',
+  noConn:'Нет связи с сервером.', noConn2:'Нет связи с сервером, попробуй позже.', ownerKey:'Ключ владельца:', badKey:'Неверный ключ владельца.',
+  kicked:'Тебя отключили на 10 минут.', nickTaken:'Этот ник занят, ты вошёл как гость. Выбери другой: «сменить ник» внизу.',
+  logoutAsk:'Выйти из аккаунта? Ник освободится, права админа и владельца на этом устройстве сбросятся. Библиотека треков останется.', newNick:'Новый ник:',
+  you:' (ты)', unadmin:'Снять', mkAdmin:'Админ', kick:'Кик', sec:' с', min:' мин', onlineNow:'Сейчас онлайн: ', youOwner:' · ты владелец', youAdmin:' · ты админ',
+  rOwner:'владелец', rAdmin:'админ', rUser:'пользователь', guest:'гость',
+  photoSaveFail:'Не удалось сохранить фото в этом браузере.', photoOpenFail:'Не получилось открыть картинку. Попробуй JPG или PNG.',
+  iosOther:'Открой сайт в Safari: нажми «Поделиться» → «На экран Домой».',
+  iosSafari:'В нижней панели Safari нажми «Поделиться» (квадрат со стрелкой; на новых iPhone он внутри меню «•••» справа внизу), прокрути список вниз и выбери «На экран Домой» → «Добавить».',
+  otherInstall:'В меню браузера выбери «Установить приложение» или «Добавить на главный экран».',
+  studioOnly:'Студия доступна только админам и владельцу.'
+},
+en: {
+  pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
+  searchH:'Track search', searchPh:'Title or artist', find:'Search', searchHint:'Finds 30-second previews. Upload the full track yourself below.',
+  h1:'1. Track', drop:'Tap and choose a song (mp3, m4a, wav)', h2:'2. Sound', chipLoud:'Louder', chipEcho:'Echo', chipWater:'Underwater', chipReset:'Reset',
+  lSpeed:'Speed', lBass:'Bass', lReverb:'Reverb', lPan:'8D pan', lVol:'Volume', lTreble:'Treble', lEcho:'Echo', lMuffle:'Underwater',
+  dlWav:'Download WAV', saveLib:'Save to library', h3:'3. Saved', libEmpty:'Nothing here yet. Set up the sound and tap “Save to library”.',
+  adminH:'Admin panel', studioBtn:'Studio: make a video', noticePh:'Message to everyone on the site', send:'Send',
+  appH:'lowend app', appHint:'Add lowend to your phone screen as an app: no address bar and it opens faster.', appBtn:'Get the app',
+  changeNick:'change nickname', logout:'log out', ownerLogin:'owner login',
+  pPhoto:'Change photo', pPhotoDel:'Remove photo', pNick:'Change nickname', pOut:'Log out', pClose:'Close',
+  themeToLight:'Light theme', themeToDark:'Dark theme',
+  welcome:'welcome to', nickPh:'Your nickname (optional)', enter:'Enter', install:'Install the app', installHint:'To install: “Share” → “Add to Home Screen”',
+  profile:'Profile', play:'Play', seek:'Seek',
+  online:'online: ', onlineW:'On the site now: ',
+  needAudio:'An audio file is required: mp3, wav, m4a or ogg.', loading:'Loading track…', readFail:'Could not read the file. Try mp3 or m4a.',
+  processing:'Processing track…', dlDone:'Done, file downloaded.', dlFail:'Could not process the file. Try another format.',
+  saved:'Saved to library.', saveFail:'Could not save in this browser.', rev:' · reverb ', open:'Open', del:'Delete',
+  searching:'Searching…', nothing:'Nothing found.', loadingPrev:'Loading preview…', prevFail:'Could not load the preview.', searchFail:'Search is unavailable right now.', tooOften:'Too many requests, wait a minute.',
+  noConn:'No connection to the server.', noConn2:'No connection to the server, try again later.', ownerKey:'Owner key:', badKey:'Wrong owner key.',
+  kicked:'You were disconnected for 10 minutes.', nickTaken:'This nickname is taken, you joined as a guest. Pick another: “change nickname” below.',
+  logoutAsk:'Log out? Your nickname will be freed and admin/owner rights on this device will be reset. Your track library stays.', newNick:'New nickname:',
+  you:' (you)', unadmin:'Remove', mkAdmin:'Admin', kick:'Kick', sec:' s', min:' min', onlineNow:'Online now: ', youOwner:' · you are the owner', youAdmin:' · you are an admin',
+  rOwner:'owner', rAdmin:'admin', rUser:'user', guest:'guest',
+  photoSaveFail:'Could not save the photo in this browser.', photoOpenFail:'Could not open the image. Try JPG or PNG.',
+  iosOther:'Open the site in Safari: tap “Share” → “Add to Home Screen”.',
+  iosSafari:'In the Safari bottom bar tap “Share” (square with an arrow; on newer iPhones it is inside the “•••” menu at the bottom right), scroll down and choose “Add to Home Screen” → “Add”.',
+  otherInstall:'In the browser menu choose “Install app” or “Add to Home screen”.',
+  studioOnly:'The studio is only available to admins and the owner.'
+}};
+let lang = 'en'; try { if (localStorage.getItem('lowend_lang') === 'ru') lang = 'ru'; } catch (e) {} // по умолчанию всегда английский
+const t = k => (LANG[lang] && LANG[lang][k]) || LANG.en[k] || k;
+let theme = 'dark'; try { if (localStorage.getItem('lowend_theme') === 'light') theme = 'light'; } catch (e) {}
+function applyTheme() {
+  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light'); else document.documentElement.removeAttribute('data-theme');
+  const m = $('metaTheme'); if (m) m.content = theme === 'light' ? '#ffffff' : '#000000';
+  $('pTheme').textContent = theme === 'light' ? t('themeToDark') : t('themeToLight');
+}
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i]').forEach(el => el.textContent = t(el.dataset.i));
+  document.querySelectorAll('[data-ph]').forEach(el => el.placeholder = t(el.dataset.ph));
+  document.querySelectorAll('[data-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.aria)));
+  const other = lang === 'ru' ? 'EN' : 'RU';
+  $('langBtn').textContent = other; $('langBtnW').textContent = other;
+  if (!buffer) { $('name').textContent = t('pick'); $('sub').textContent = t('pickSub'); }
+  else $('sub').textContent = t('len') + fmt(buffer.duration);
+  if (typeof onlineN === 'number') showOnline();
+  applyTheme();
+  if (typeof renderLib === 'function') renderLib();
+  if (typeof lastUsers !== 'undefined' && lastUsers) renderUsers(lastUsers);
+  if (typeof me !== 'undefined') { $('pRole').textContent = roleName(me.role); }
+  if (!$('installHint').hidden) {} // текст подсказки уже обновлён через data-i
+}
+function toggleLang() { lang = lang === 'ru' ? 'en' : 'ru'; try { localStorage.setItem('lowend_lang', lang); } catch (e) {} applyLang(); }
 const S = { speed: 1, bass: 0, reverb: 0, pan: 0, vol: 100, treble: 0, echo: 0, muffle: 0 };
 let ctx = null, nodes = null, analyser = null, buffer = null, src = null;
 let curFile = null, offset = 0, startCtx = 0, playing = false, dragging = false, title = '';
@@ -311,16 +415,16 @@ function startAt(o) {
 /* ---------- загрузка файла ---------- */
 async function loadFile(f, nm, trusted) {
   if (!f) return;
-  if (!trusted && f.type && !f.type.startsWith('audio/') && !/\.(mp3|m4a|wav|ogg|aac|flac|opus|mp4)$/i.test(f.name)) return status('Нужен аудиофайл: mp3, wav, m4a или ogg.');
-  initAudio(); status('Загружаю трек…');
+  if (!trusted && f.type && !f.type.startsWith('audio/') && !/\.(mp3|m4a|wav|ogg|aac|flac|opus|mp4)$/i.test(f.name)) return status(t('needAudio'));
+  initAudio(); status(t('loading'));
   try {
     const ab = await f.arrayBuffer();
     const buf = await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej));
     stopSrc(); playing = false; outEl.pause(); buffer = buf; offset = 0;
-    curFile = f; setTitle(cleanName(nm || f.name), 'Длина: ' + fmt(buf.duration));
+    curFile = f; setTitle(cleanName(nm || f.name), t('len') + fmt(buf.duration));
     ['play', 'seek', 'dl', 'save'].forEach(id => $(id).disabled = false);
     setPlayUI(); status('');
-  } catch (e) { status('Не получилось прочитать файл. Попробуй mp3 или m4a.'); }
+  } catch (e) { status(t('readFail')); }
 }
 $('file').onchange = e => loadFile(e.target.files[0]);
 const drop = $('drop');
@@ -425,7 +529,7 @@ function toWav(buf) {
 }
 $('dl').onclick = async () => {
   if (!buffer) return;
-  $('dl').disabled = true; status('Обрабатываю трек…');
+  $('dl').disabled = true; status(t('processing'));
   try {
     const buf = buffer, tail = (S.reverb > 0 || S.echo > 0) ? 3 : 0;
     const off = new OfflineAudioContext(2, Math.ceil((buf.duration / S.speed + tail) * buf.sampleRate), buf.sampleRate);
@@ -434,8 +538,8 @@ $('dl').onclick = async () => {
     const blob = toWav(await off.startRendering());
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = (title || 'track') + ' (lowend).wav'; a.click();
-    status('Готово, файл скачан.');
-  } catch (e) { status('Не получилось обработать файл. Попробуй другой формат.'); }
+    status(t('dlDone'));
+  } catch (e) { status(t('dlFail')); }
   $('dl').disabled = false;
 };
 
@@ -462,10 +566,10 @@ async function renderLib() {
     const meta = document.createElement('div'); meta.className = 'meta';
     const b = document.createElement('b'); b.textContent = t.title;
     const sm = document.createElement('small');
-    sm.textContent = t.speed.toFixed(2) + 'x · +' + t.bass + ' dB · реверб ' + t.reverb + '%' + (t.pan ? ' · 8D ' + t.pan + '%' : '');
+    sm.textContent = t.speed.toFixed(2) + 'x · +' + t.bass + ' dB' + LANG[lang].rev + t.reverb + '%' + (t.pan ? ' · 8D ' + t.pan + '%' : '');
     meta.append(b, sm);
-    const open = mkBtn('Открыть', async () => { await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan, t.vol, t.treble, t.echo, t.muffle); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-    const del = mkBtn('✕', async () => { await tx('readwrite', s => s.delete(t.id)); renderLib(); }); del.setAttribute('aria-label', 'Удалить');
+    const open = mkBtn(LANG[lang].open, async () => { await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan, t.vol, t.treble, t.echo, t.muffle); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    const del = mkBtn('✕', async () => { await tx('readwrite', s => s.delete(t.id)); renderLib(); }); del.setAttribute('aria-label', LANG[lang].del);
     row.append(meta, open, del); $('lib').append(row);
   });
 }
@@ -473,20 +577,20 @@ $('save').onclick = async () => {
   if (!curFile) return;
   try {
     await tx('readwrite', s => s.add({ title, blob: curFile, speed: S.speed, bass: S.bass, reverb: S.reverb, pan: S.pan, vol: S.vol, treble: S.treble, echo: S.echo, muffle: S.muffle, created: Date.now() }));
-    status('Сохранено в библиотеку.'); renderLib();
-  } catch (e) { status('Не удалось сохранить в этом браузере.'); }
+    status(t('saved')); renderLib();
+  } catch (e) { status(t('saveFail')); }
 };
 renderLib();
 /* ---------- поиск треков (iTunes, превью 30 с) ---------- */
 const qs = m => $('qStatus').textContent = m || '';
 async function doSearch() {
   const q = $('q').value.trim(); if (!q) return;
-  $('qBtn').disabled = true; qs('Ищу…'); $('found').innerHTML = '';
+  $('qBtn').disabled = true; qs(t('searching')); $('found').innerHTML = '';
   try {
     const r = await fetch('/api/search?q=' + encodeURIComponent(q));
     const list = await r.json();
-    if (!r.ok) throw new Error(list.error);
-    qs(list.length ? '' : 'Ничего не нашлось.');
+    if (!r.ok) throw new Error(r.status === 429 ? 'many' : 'fail');
+    qs(list.length ? '' : t('nothing'));
     list.forEach(t => {
       const row = document.createElement('div'); row.className = 'item';
       if (String(t.art).startsWith('https://')) {
@@ -497,18 +601,18 @@ async function doSearch() {
       const b = document.createElement('b'); b.textContent = t.title;
       const sm = document.createElement('small'); sm.textContent = t.artist;
       meta.append(b, sm);
-      const open = mkBtn('Открыть', async () => {
-        qs('Загружаю превью…');
+      const open = mkBtn(LANG[lang].open, async () => {
+        qs(LANG[lang].loadingPrev);
         try {
           const rr = await fetch('/api/preview?u=' + encodeURIComponent(t.preview));
           if (!rr.ok) throw 0;
           await loadFile(await rr.blob(), t.artist + ' — ' + t.title, true);
           qs(''); window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch (e) { qs('Не удалось загрузить превью.'); }
+        } catch (e) { qs(LANG[lang].prevFail); }
       });
       row.append(meta, open); $('found').append(row);
     });
-  } catch (e) { qs(e.message || 'Поиск недоступен.'); }
+  } catch (e) { qs(e.message === 'many' ? t('tooOften') : t('searchFail')); }
   $('qBtn').disabled = false;
 }
 $('qBtn').onclick = doSearch;
@@ -532,6 +636,8 @@ function connect() {
   ws.onmessage = e => { try { onMsg(JSON.parse(e.data)); } catch (err) {} };
   ws.onclose = () => { if (!kicked && (opened || tries < 3)) setTimeout(connect, Math.min(15000, 1500 * ++tries)); };
 }
+let onlineN = null, lastUsers = null;
+function showOnline() { $('online').textContent = t('online') + onlineN; $('onlineW').textContent = t('onlineW') + onlineN; }
 let noticeTimer;
 function showNotice(text) {
   const n = $('notice'); n.textContent = text; n.hidden = false;
@@ -539,31 +645,32 @@ function showNotice(text) {
 }
 $('notice').onclick = () => $('notice').hidden = true;
 function onMsg(m) {
-  if (m.t === 'count') { const x = 'онлайн: ' + m.n; $('online').textContent = x; $('onlineW').textContent = 'Сейчас на сайте: ' + m.n; }
+  if (m.t === 'count') { onlineN = m.n; showOnline(); }
   else if (m.t === 'me') { me = m; paintAvs(); if (m.role === 'owner' && pendingKey) { try { localStorage.setItem('lowend_okey', pendingKey); } catch (e) {} pendingKey = ''; } $('admin').hidden = m.role === 'user'; $('ownerLink').parentElement.hidden = m.role === 'owner'; }
-  else if (m.t === 'users') renderUsers(m.list);
+  else if (m.t === 'users') { lastUsers = m.list; renderUsers(m.list); }
   else if (m.t === 'notice') showNotice((m.from ? m.from + ': ' : '') + m.text);
-  else if (m.t === 'kicked') { kicked = true; showNotice('Тебя отключили на 10 минут.'); }
-  else if (m.t === 'authfail') { if (pendingKey) { showNotice('Неверный ключ владельца.'); pendingKey = ''; } else { try { localStorage.removeItem('lowend_okey'); } catch (e) {} } }
+  else if (m.t === 'kicked') { kicked = true; showNotice(t('kicked')); }
+  else if (m.t === 'authfail') { if (pendingKey) { showNotice(t('badKey')); pendingKey = ''; } else { try { localStorage.removeItem('lowend_okey'); } catch (e) {} } }
   else if (m.t === 'loggedout') wipeAndReload();
-  else if (m.t === 'nickTaken') { showNotice('Этот ник занят, ты вошёл как гость. Выбери другой: «сменить ник» внизу.'); nick = ''; try { localStorage.removeItem('lowend_nick'); } catch (e) {} $('nick').value = ''; paintAvs(); }
+  else if (m.t === 'nickTaken') { showNotice(t('nickTaken')); nick = ''; try { localStorage.removeItem('lowend_nick'); } catch (e) {} $('nick').value = ''; paintAvs(); }
 }
-const ROLE = { owner: 'владелец', admin: 'админ', user: '' };
+const roleName = r => r === 'owner' ? t('rOwner') : r === 'admin' ? t('rAdmin') : t('rUser');
+const ROLE = { get owner() { return t('rOwner'); }, get admin() { return t('rAdmin'); }, user: '' };
 function renderUsers(list) {
-  $('adminInfo').textContent = 'Сейчас онлайн: ' + list.length + (me.role === 'owner' ? ' · ты владелец' : ' · ты админ');
+  $('adminInfo').textContent = t('onlineNow') + list.length + (me.role === 'owner' ? t('youOwner') : t('youAdmin'));
   const rank = { owner: 0, admin: 1, user: 2 };
   list.sort((a, b) => rank[a.role] - rank[b.role]);
   $('users').innerHTML = '';
   list.forEach(u => {
     const row = document.createElement('div'); row.className = 'item';
     const meta = document.createElement('div'); meta.className = 'meta';
-    const b = document.createElement('b'); b.textContent = u.name + (u.id === me.id ? ' (ты)' : '');
+    const b = document.createElement('b'); b.textContent = u.name + (u.id === me.id ? t('you') : '');
     if (ROLE[u.role]) { const t = document.createElement('span'); t.className = 'badge'; t.textContent = ROLE[u.role]; b.append(t); }
-    const sm = document.createElement('small'); sm.textContent = 'id ' + u.id + ' · ' + (u.age < 60 ? u.age + ' с' : Math.floor(u.age / 60) + ' мин');
+    const sm = document.createElement('small'); sm.textContent = 'id ' + u.id + ' · ' + (u.age < 60 ? u.age + t('sec') : Math.floor(u.age / 60) + t('min'));
     meta.append(b, sm); row.append(meta);
     if (u.id !== me.id && u.role !== 'owner') {
-      if (me.role === 'owner') row.append(mkBtn(u.role === 'admin' ? 'Снять' : 'Админ', () => wsSend({ t: 'role', id: u.id, role: u.role === 'admin' ? 'user' : 'admin' })));
-      if (me.role === 'owner' || u.role === 'user') row.append(mkBtn('Кик', () => wsSend({ t: 'kick', id: u.id })));
+      if (me.role === 'owner') row.append(mkBtn(u.role === 'admin' ? t('unadmin') : t('mkAdmin'), () => wsSend({ t: 'role', id: u.id, role: u.role === 'admin' ? 'user' : 'admin' })));
+      if (me.role === 'owner' || u.role === 'user') row.append(mkBtn(t('kick'), () => wsSend({ t: 'kick', id: u.id })));
     }
     $('users').append(row);
   });
@@ -571,8 +678,8 @@ function renderUsers(list) {
 $('noticeBtn').onclick = () => { const t = $('noticeText').value.trim(); if (t) { wsSend({ t: 'notice', text: t }); $('noticeText').value = ''; } };
 $('ownerLink').onclick = e => {
   e.preventDefault();
-  if (!ws || ws.readyState !== 1) return showNotice('Нет связи с сервером.');
-  const k = prompt('Ключ владельца:'); if (k) { pendingKey = k; wsSend({ t: 'auth', key: k }); }
+  if (!ws || ws.readyState !== 1) return showNotice(t('noConn'));
+  const k = prompt(t('ownerKey')); if (k) { pendingKey = k; wsSend({ t: 'auth', key: k }); }
 };
 $('enter').onclick = () => {
   nick = $('nick').value.trim().slice(0, 20);
@@ -586,14 +693,14 @@ function wipeAndReload() {
 }
 $('logoutLink').onclick = e => {
   e.preventDefault();
-  if (!ws || ws.readyState !== 1) return showNotice('Нет связи с сервером, попробуй позже.');
-  if (!confirm('Выйти из аккаунта? Ник освободится, права админа и владельца на этом устройстве сбросятся. Библиотека треков останется.')) return;
+  if (!ws || ws.readyState !== 1) return showNotice(t('noConn2'));
+  if (!confirm(t('logoutAsk'))) return;
   kicked = true; // не переподключаться
   wsSend({ t: 'logout' }); setTimeout(wipeAndReload, 3000);
 };
 $('nickLink').onclick = e => {
   e.preventDefault();
-  const n = prompt('Новый ник:', nick); if (n === null) return;
+  const n = prompt(t('newNick'), nick); if (n === null) return;
   nick = n.trim().slice(0, 20); try { localStorage.setItem('lowend_nick', nick); } catch (err) {}
   $('nick').value = nick; hello(); paintAvs();
 };
@@ -607,8 +714,9 @@ function paintAv(el) {
 function paintAvs() { paintAv($('avBtn')); paintAv($('pAv')); }
 function openProfile() {
   paintAvs();
-  $('pName').textContent = me.name || nick || 'гость';
-  $('pRole').textContent = ROLE[me.role] || 'пользователь';
+  $('pName').textContent = me.name || nick || t('guest');
+  $('pRole').textContent = roleName(me.role);
+  applyTheme();
   $('profile').hidden = false;
 }
 $('avBtn').onclick = openProfile;
@@ -627,9 +735,9 @@ $('avFile').onchange = async e => {
     c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, n, n);
     URL.revokeObjectURL(url);
     avatar = c.toDataURL('image/jpeg', .85);
-    try { localStorage.setItem('lowend_avatar', avatar); } catch (err) { showNotice('Не удалось сохранить фото в этом браузере.'); }
+    try { localStorage.setItem('lowend_avatar', avatar); } catch (err) { showNotice(t('photoSaveFail')); }
     paintAvs();
-  } catch (err) { showNotice('Не получилось открыть картинку. Попробуй JPG или PNG.'); }
+  } catch (err) { showNotice(t('photoOpenFail')); }
 };
 $('avDel').onclick = () => { avatar = ''; try { localStorage.removeItem('lowend_avatar'); } catch (e) {} paintAvs(); };
 paintAvs();
@@ -645,8 +753,8 @@ addEventListener('appinstalled', () => { $('appCard').hidden = true; });
 $('installBtn2').onclick = async () => {
   if (installEvt) { installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('installBtn').hidden = true; return; }
   $('appHint').textContent = IOS
-    ? (/CriOS|FxiOS|EdgiOS|YaBrowser/.test(navigator.userAgent) ? 'Открой сайт в Safari: нажми «Поделиться» → «На экран Домой».' : 'В нижней панели Safari нажми «Поделиться» (квадрат со стрелкой; на новых iPhone он внутри меню «•••» справа внизу), прокрути список вниз и выбери «На экран Домой» → «Добавить».')
-    : 'В меню браузера выбери «Установить приложение» или «Добавить на главный экран».';
+    ? (/CriOS|FxiOS|EdgiOS|YaBrowser/.test(navigator.userAgent) ? t('iosOther') : t('iosSafari'))
+    : t('otherInstall');
 };
 
 // Студия грузится с сервера только для админов и владельца
@@ -658,8 +766,11 @@ $('studioBtn').onclick = async () => {
       const el = document.createElement('script'); el.textContent = await r.text(); document.head.append(el);
     }
     window.openStudio();
-  } catch (e) { showNotice('Студия доступна только админам и владельцу.'); }
+  } catch (e) { showNotice(t('studioOnly')); }
 };
+$('pTheme').onclick = () => { theme = theme === 'light' ? 'dark' : 'light'; try { localStorage.setItem('lowend_theme', theme); } catch (e) {} applyTheme(); };
+$('langBtn').onclick = toggleLang; $('langBtnW').onclick = toggleLang;
+applyLang();
 connect();
 </script>
 </body>
