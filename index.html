@@ -185,6 +185,13 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
         </label>
       </section>
 
+      <section class="card" aria-label="lowend AI" style="margin-bottom:18px">
+        <h2 data-i="aiH"></h2>
+        <div class="src"><input type="text" id="aiQ" maxlength="300" data-ph="aiPh" placeholder="Describe the sound" autocomplete="off"><button class="btn" id="aiBtn" data-i="aiGo"></button></div>
+        <p class="hint" style="margin-top:8px" data-i="aiHint"></p>
+        <p class="status" id="aiStatus" role="status"></p>
+      </section>
+
       <section class="card fx" aria-label="Эффекты">
         <h2 data-i="h2"></h2>
         <div class="chips">
@@ -305,6 +312,7 @@ const LANG = {
 ru: {
   pick:'Выбери трек', pickSub:'Загрузи песню ниже', len:'Длина: ', nosound:'Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.',
   searchH:'Поиск треков', searchPh:'Название или исполнитель', find:'Найти', searchHint:'Находит 30-секундные превью. Полный трек загрузи сам ниже.',
+  aiH:'lowend AI', aiPh:'Например: грустный slowed с мощным басом', aiGo:'Сделать', aiHint:'Опиши, как должен звучать трек, и ИИ выставит настройки. Можно попросить подобрать песню.', aiThink:'ИИ думает…', aiDone:'Готово, настройки выставлены.', aiErr:'ИИ недоступен.',
   h1:'1. Трек', drop:'Нажми и выбери песню (mp3, m4a, wav)', h2:'2. Звук', chipLoud:'Громче', chipEcho:'Эхо', chipWater:'Под водой', chipReset:'Сбросить',
   lSub:'Саб-бас', lDist:'Искажение', chipSub:'Саб-бас', chipDist:'Искажение', chipBBS:'Бас + ускоренный', chipSR:'Замедленный + реверб', chipNC:'Найткор',
   lSpeed:'Скорость', lBass:'Бас', lReverb:'Реверб', lPan:'8D панорама', lVol:'Громкость', lTreble:'Высокие', lEcho:'Эхо', lMuffle:'Под водой',
@@ -341,6 +349,7 @@ ru: {
 en: {
   pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
   searchH:'Track search', searchPh:'Title or artist', find:'Search', searchHint:'Finds 30-second previews. Upload the full track yourself below.',
+  aiH:'lowend AI', aiPh:'e.g. sad slowed with heavy bass', aiGo:'Go', aiHint:'Describe how the track should sound and the AI sets the controls. You can also ask it to find a song.', aiThink:'AI is thinking…', aiDone:'Done, settings applied.', aiErr:'AI is unavailable.',
   h1:'1. Track', drop:'Tap and choose a song (mp3, m4a, wav)', h2:'2. Sound', chipLoud:'Louder', chipEcho:'Echo', chipWater:'Underwater', chipReset:'Reset',
   lSub:'Sub bass', lDist:'Distortion', chipSub:'Sub bass', chipDist:'Distortion', chipBBS:'Bass boosted + sped up', chipSR:'Slowed + reverb', chipNC:'Nightcore',
   lSpeed:'Speed', lBass:'Bass', lReverb:'Reverb', lPan:'8D pan', lVol:'Volume', lTreble:'Treble', lEcho:'Echo', lMuffle:'Underwater',
@@ -530,25 +539,47 @@ function buildChain(c, src, dest) {
   delay.delayTime.value = .32; fb.gain.value = .38;
   const sub = c.createBiquadFilter(); sub.type = 'peaking'; sub.frequency.value = 50; sub.Q.value = 1; // узкий саб-бас, как в «bass boosted»
   const shaper = c.createWaveShaper(); shaper.oversample = '4x'; // искажение; без кривой звук идёт без изменений
-  src.connect(sub); sub.connect(bass); bass.connect(shaper); shaper.connect(treble); treble.connect(muffle);
+  // чистим инфразвук (<28 Гц): его не слышно, а он съедает запас громкости
+  const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 28; hp.Q.value = .707;
+  // «психоакустический бас»: гармоники низов, чтобы бас был слышен и на динамике телефона
+  const hLp = c.createBiquadFilter(); hLp.type = 'lowpass'; hLp.frequency.value = 140; hLp.Q.value = .707;
+  const hSh = c.createWaveShaper(); hSh.oversample = '4x'; hSh.curve = harmCurve();
+  const hHp = c.createBiquadFilter(); hHp.type = 'highpass'; hHp.frequency.value = 90; hHp.Q.value = .707;
+  const hG = c.createGain(); hG.gain.value = 0;
+  src.connect(hp); hp.connect(sub); sub.connect(bass); bass.connect(shaper); shaper.connect(treble); treble.connect(muffle);
+  bass.connect(hLp); hLp.connect(hSh); hSh.connect(hHp); hHp.connect(hG); hG.connect(treble);
   muffle.connect(dry); muffle.connect(conv); conv.connect(wet);
   muffle.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(echo);
-  dry.connect(vol); wet.connect(vol); echo.connect(vol); vol.connect(lim);
-  let depth = null, out = lim;
+  // Лимитер на две полосы: низы (<150 Гц) сжимаются отдельно и больше не «прижимают» всё остальное
+  dry.connect(vol); wet.connect(vol); echo.connect(vol);
+  const mk = (type, f) => { const b = c.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = .707; return b; };
+  const lowC = c.createDynamicsCompressor(); lowC.threshold.value = -2; lowC.knee.value = 6; lowC.ratio.value = 12; lowC.attack.value = .003; lowC.release.value = .12;
+  const sum = c.createGain(), clip = c.createWaveShaper(); clip.oversample = '4x'; clip.curve = ceilCurve();
+  // полосы разделены фильтрами по 24 дБ/окт (два биквада подряд)
+  const lp1 = mk('lowpass', 150), lp2 = mk('lowpass', 150), hp1 = mk('highpass', 150), hp2 = mk('highpass', 150);
+  vol.connect(lp1); lp1.connect(lp2); lp2.connect(lowC); lowC.connect(sum);
+  vol.connect(hp1); hp1.connect(hp2); hp2.connect(lim); lim.connect(sum);
+  sum.connect(clip);
+  let depth = null, out = clip;
   if (c.createStereoPanner) {
     const pan = c.createStereoPanner(), lfo = c.createOscillator(); depth = c.createGain();
     lfo.frequency.value = .15; lfo.connect(depth); depth.connect(pan.pan); lfo.start();
-    lim.connect(pan); out = pan;
+    clip.connect(pan); out = pan;
   }
   out.connect(dest);
-  return { bass, sub, shaper, dry, wet, lim, depth, treble, muffle, echo, vol, out };
+  return { bass, sub, shaper, dry, wet, lim, lowC, hG, sum, clip, depth, treble, muffle, echo, vol, out };
 }
+const harmCurve = () => { const N = 2048, c = new Float32Array(N); for (let i = 0; i < N; i++) c[i] = Math.tanh((i / (N - 1) * 2 - 1) * 7) ; return c; };
+// мягкий потолок: до 0.85 звук не меняется, выше плавно прижимается к 1.0, жёсткого клиппинга нет
+const ceilCurve = () => { const N = 4096, c = new Float32Array(N); for (let i = 0; i < N; i++) { const x = i / (N - 1) * 2 - 1, a = Math.abs(x); c[i] = a < .85 ? x : Math.sign(x) * (.85 + .15 * Math.tanh((a - .85) / .15)); } return c; };
 const distCurve = k => { const drive = 1 + k / 100 * 14, N = 2048, c = new Float32Array(N), nm = Math.tanh(drive);
   for (let i = 0; i < N; i++) c[i] = Math.tanh((i / (N - 1) * 2 - 1) * drive) / nm; return c; };
 function applySettings(n) {
   n.sub.gain.value = S.sub / 100 * 18;
   if (n.dv !== S.dist) { n.shaper.curve = S.dist ? distCurve(S.dist) : null; n.dv = S.dist; }
   n.bass.gain.value = S.bass;
+  n.hG.gain.value = Math.min(.7, S.bass / 40 * .5 + S.sub / 100 * .4); // гармоники басса растут вместе с басом и сабом
+  n.lowC.threshold.value = -2 - Math.min(4, S.bass * .2 + S.sub * .04); // без басса компрессор низов не вмешивается
   n.treble.gain.value = S.treble;
   n.muffle.frequency.value = Math.max(300, 20000 * Math.pow(1 - S.muffle / 100, 3));
   n.echo.gain.value = S.echo / 100 * .7;
@@ -569,7 +600,7 @@ function initAudio() {
   if ('srcObject' in outEl && ctx.createMediaStreamDestination) { dest = ctx.createMediaStreamDestination(); outEl.srcObject = dest.stream; }
   nodes = buildChain(ctx, inp, dest); nodes.inp = inp;
   analyser = ctx.createAnalyser(); analyser.fftSize = 128; analyser.smoothingTimeConstant = .8;
-  nodes.lim.connect(analyser);
+  nodes.sum.connect(analyser);
   applySettings(nodes);
 }
 
@@ -794,6 +825,23 @@ async function doSearch() {
   } catch (e) { qs(e.message === 'many' ? t('tooOften') : t('searchFail')); }
   $('qBtn').disabled = false;
 }
+/* ---------- lowend AI: описание словами -> настройки звука ---------- */
+const AIR = { speed: [.3, 2], bass: [0, 40], reverb: [0, 100], pan: [0, 100], vol: [0, 400], treble: [0, 20], echo: [0, 100], muffle: [0, 100], sub: [0, 100], dist: [0, 100] };
+async function askSoundAI() {
+  const p = $('aiQ').value.trim(), st = $('aiStatus'); if (!p) return;
+  $('aiBtn').disabled = true; st.textContent = t('aiThink');
+  try {
+    const r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: p, current: S, lang }) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || t('aiErr'));
+    const n = { ...S };
+    for (const k in AIR) if (j[k] !== undefined && isFinite(+j[k])) n[k] = Math.round(Math.min(AIR[k][1], Math.max(AIR[k][0], +j[k])) * 100) / 100;
+    setSettings(...IDS.map(k => n[k]));
+    st.textContent = String(j.say || t('aiDone')).slice(0, 240);
+    if (j.search) { $('q').value = String(j.search).slice(0, 100); doSearch(); }
+  } catch (e) { st.textContent = e.message || t('aiErr'); }
+  $('aiBtn').disabled = false;
+}
+$('aiBtn').onclick = askSoundAI; $('aiQ').addEventListener('keydown', e => e.key === 'Enter' && askSoundAI());
 $('qBtn').onclick = doSearch;
 $('q').addEventListener('keydown', e => e.key === 'Enter' && doSearch());
 /* ---------- онлайн, роли, админка ---------- */

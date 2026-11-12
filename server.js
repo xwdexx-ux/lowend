@@ -212,6 +212,51 @@ function studioAI(req, res, h) {
   });
 }
 
+// lowend AI на главной: описание словами -> настройки звука (доступно всем, лимит по IP)
+const SOUND_SYS = 'Ты lowend AI, помощник сайта для обработки музыки (slowed, reverb, bass boost, nightcore). Верни ТОЛЬКО JSON без markdown с полями: ' +
+  'say (1-2 коротких предложения для пользователя на языке запроса: что сделал и почему), ' +
+  'speed (0.3-2, 1 = оригинал, slowed ~0.8-0.9, nightcore ~1.25-1.35), bass (0-40 дБ), reverb (0-100), pan (0-100, 8D), vol (0-400, обычно 100), treble (0-20), echo (0-100), muffle (0-100, эффект «из-под воды»), sub (0-100), dist (0-100), ' +
+  'search (необязательно: строка для поиска песни, только если пользователь просит подобрать или найти трек). ' +
+  'Поля, которые не просили менять, оставляй такими же, как в current. Не ставь bass выше 20 и sub выше 60 без явной просьбы: на динамике телефона сверхнизкие частоты не слышны, лучше умеренный bass и немного dist.';
+const soundHits = new Map();
+function soundAI(req, res) {
+  const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+  const GKEY = process.env.GEMINI_API_KEY, AKEY = process.env.ANTHROPIC_API_KEY;
+  if (!GKEY && !AKEY) return out(501, { error: 'ИИ не подключён: добавь на сервере GEMINI_API_KEY (бесплатно).' });
+  const ip = ipOf(req), now = Date.now();
+  if (soundHits.size > 5000) soundHits.clear();
+  const hits = (soundHits.get(ip) || []).filter(t => now - t < 3600000);
+  if (hits.length >= 15) return out(429, { error: 'Лимит: 15 запросов ИИ в час. / Limit: 15 AI requests per hour.' });
+  soundHits.set(ip, [...hits, now]);
+  let body = ''; req.on('data', d => { body += d; if (body.length > 4000) req.destroy(); });
+  req.on('end', async () => {
+    try {
+      const b = JSON.parse(body);
+      const user = JSON.stringify({ request: String(b.prompt || '').slice(0, 300), current: b.current, language: b.lang === 'ru' ? 'ru' : 'en' });
+      let text;
+      if (GKEY) {
+        const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': GKEY },
+          body: JSON.stringify({ systemInstruction: { parts: [{ text: SOUND_SYS }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json' } })
+        });
+        const j = await r.json();
+        text = ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join('');
+      } else {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5', max_tokens: 400, system: SOUND_SYS, messages: [{ role: 'user', content: user }] })
+        });
+        const j = await r.json();
+        text = (j.content || []).map(c => c.text || '').join('');
+      }
+      const o = JSON.parse(text.replace(/```json|```/g, '').trim());
+      const keep = {}; for (const k of ['say', 'speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle', 'sub', 'dist', 'search']) if (o[k] !== undefined) keep[k] = o[k];
+      out(200, keep);
+    } catch (e) { out(500, { error: 'ИИ не смог обработать запрос.' }); }
+  });
+}
+
 // Поиск треков: каталог iTunes (30-секундные превью), всё идёт через сервер, чтобы не упираться в CORS
 const searchHits = new Map();
 const ipOf = req => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
@@ -256,6 +301,7 @@ const APP_FILES = { '/manifest.webmanifest': 'application/manifest+json', '/sw.j
 const server = http.createServer((req, res) => {
   if (req.url === '/health') return res.end('ok');
   const pth = req.url.split('?')[0];
+  if (pth === '/api/ai' && req.method === 'POST') return soundAI(req, res);
   if (pth === '/api/search') return musicSearch(req, res);
   if (pth === '/api/preview') return musicPreview(req, res);
   if (pth === '/tg' && req.method === 'POST') { // вебхук Telegram
