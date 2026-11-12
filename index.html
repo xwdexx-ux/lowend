@@ -162,6 +162,16 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .ditem{display:flex;align-items:center;gap:12px;width:100%;margin:0;padding:12px;border:0;border-radius:12px;background:transparent;color:var(--text);font:500 16px "Instrument Sans",sans-serif;text-align:left;cursor:pointer}
 .ditem:hover,.ditem.on{background:var(--track)}
 .ditem svg{width:20px;height:20px;flex:none}
+.dsec{margin:14px 10px 6px;font:600 12px "Instrument Sans",sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+#dChats{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:2px}
+.crow{display:flex;align-items:center;border-radius:12px;flex:none}
+.crow:hover,.crow.on{background:var(--track)}
+.crow .ct{flex:1;min-width:0;margin:0;padding:11px 12px;border:0;background:transparent;color:var(--text);font:400 15px "Instrument Sans",sans-serif;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .cx{flex:none;width:36px;height:36px;margin:0 4px 0 0;padding:0;border:0;background:transparent;color:var(--muted);border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.crow .cx:hover{color:var(--text)}
+.crow .cx svg{width:18px;height:18px}
+#dNone{color:var(--muted);padding:6px 12px;font-size:14px}
+#dNone[hidden]{display:none}
 #aiApp{position:fixed;inset:0;z-index:70;background:var(--ink);color:var(--text);display:flex;flex-direction:column;height:100vh;height:100dvh}
 .ai-top{display:flex;align-items:center;justify-content:space-between;padding:calc(8px + env(safe-area-inset-top)) 10px 8px}
 .ai-title{font:600 16px "Instrument Sans",sans-serif}
@@ -199,6 +209,11 @@ button.ai-tag{margin:0;background:var(--a);color:var(--onA);border-color:transpa
     <div class="dl-h"><span>lowend</span><button class="ai-ib" id="drClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <button class="ditem on" id="dPlayer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span data-i="aiPlayer"></span></button>
     <button class="ditem" id="dAI"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg><span data-i="aiH"></span></button>
+    <button class="ditem" id="dNew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg><span data-i="aiNew"></span></button>
+    <button class="ditem" id="dPro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z"/></svg><span data-i="proNav"></span></button>
+    <div class="dsec" data-i="aiChats"></div>
+    <div id="dChats"></div>
+    <div id="dNone" data-i="aiNoChats" hidden></div>
   </nav>
 </div>
 <div id="aiApp" hidden role="dialog" aria-label="lowend AI">
@@ -313,6 +328,15 @@ button.ai-tag{margin:0;background:var(--a);color:var(--onA);border-color:transpa
         <p class="hint" style="text-align:center;margin-top:10px"><a href="#" id="premRestore" style="color:inherit" data-i="premRestore"></a></p>
       </section>
 
+      <section class="card fx" id="proCard" aria-label="lowend AI Pro">
+        <h2 data-i="proH"></h2>
+        <p class="prem-sub" data-i="proSub"></p>
+        <ul class="prem-list"><li data-i="proB1"></li><li data-i="proB2"></li></ul>
+        <p id="proActive" hidden style="margin:0 0 12px;color:var(--text);font-weight:600"></p>
+        <button class="btn" id="proBuy" style="width:100%" data-i="proBuy"></button>
+        <p class="hint" id="proRestoreP" style="text-align:center;margin-top:10px"><a href="#" id="proRestore" style="color:inherit" data-i="proRestore"></a></p>
+      </section>
+
       <section class="card fx" id="admin" hidden aria-label="Админ-панель">
         <h2 data-i="adminH"></h2>
         <p class="hint" id="adminInfo"></p>
@@ -369,7 +393,7 @@ const LANG = {
 ru: {
   pick:'Выбери трек', pickSub:'Загрузи песню ниже', len:'Длина: ', nosound:'Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.',
   searchH:'Поиск треков', searchPh:'Название или исполнитель', find:'Найти', searchHint:'Находит 30-секундные превью. Полный трек загрузи сам ниже.',
-  aiH:'lowend AI', aiPh:'Напиши lowend AI', aiHello:'lowend AI', aiSub:'Опиши звук словами или просто пообщайся', aiS1:'Сделай грустный slowed с реверберацией', aiS2:'Добавь мощный бас, но чтобы слышно было на телефоне', aiS3:'Привет! Что ты умеешь?', aiErr:'ИИ недоступен.', aiNew:'Новый чат', aiPlayer:'Плеер', aiOpen:'К плееру', aiNote:'lowend AI может ошибаться.', aiMenu:'Меню',
+  aiH:'lowend AI', aiPh:'Напиши lowend AI', aiHello:'lowend AI', aiSub:'Опиши звук словами или просто пообщайся', aiS1:'Сделай грустный slowed с реверберацией', aiS2:'Добавь мощный бас, но чтобы слышно было на телефоне', aiS3:'Привет! Что ты умеешь?', aiErr:'ИИ недоступен.', aiNew:'Новый чат', aiPlayer:'Плеер', aiOpen:'К плееру', aiNote:'lowend AI может ошибаться.', aiMenu:'Меню', aiChats:'Чаты', aiNoChats:'Пока нет чатов', aiDelQ:'Удалить этот чат?', aiDel:'Удалить',
   h1:'1. Трек', drop:'Нажми и выбери песню (mp3, m4a, wav)', h2:'2. Звук', chipLoud:'Громче', chipEcho:'Эхо', chipWater:'Под водой', chipReset:'Сбросить',
   lSub:'Саб-бас', lDist:'Искажение', chipSub:'Саб-бас', chipDist:'Искажение', chipBBS:'Бас + ускоренный', chipSR:'Замедленный + реверб', chipNC:'Найткор',
   lSpeed:'Скорость', lBass:'Бас', lReverb:'Реверб', lPan:'8D панорама', lVol:'Громкость', lTreble:'Высокие', lEcho:'Эхо', lMuffle:'Под водой',
@@ -380,6 +404,7 @@ ru: {
   premBuy:'Купить premium · 150 ⭐', premOpen:'Открыть Студию', premRestore:'Уже оплачивал? Восстановить premium',
   premUntil:'Premium активен до ', premOn:'Premium включён. Студия открыта.', premOff:'Снять premium', prem30:'Premium +30 дн', premBadge:'premium',
   premStaff:'Тебе Студия доступна как админу.', premErr:'Оплата сейчас недоступна.',
+  proH:'lowend AI Pro', proSub:'50 ⭐ Telegram Stars на 30 дней', proB1:'200 сообщений ИИ в час вместо 40', proB2:'Более умная модель ИИ: лучше понимает сложные просьбы', proBuy:'Купить Pro · 50 ⭐', proRestore:'Уже оплачивал? Восстановить Pro', proUntil:'Pro активен до ', proOn:'Pro включён. ИИ стал умнее.', proOff:'Снять Pro', pro30:'Pro +30 дн', proBadge:'pro', proStaff:'Pro-возможности ИИ тебе доступны как админу.', proNav:'ИИ Pro',
   adminH:'Админ-панель', studioBtn:'Студия: сделать видео', noticePh:'Сообщение всем на сайте', send:'Отправить',
   appH:'Приложение lowend', appHint:'Поставь lowend на экран телефона как приложение: без адресной строки и открывается быстрее.', appBtn:'Скачать приложение',
   changeNick:'сменить ник', logout:'выйти', ownerLogin:'вход для владельца',
@@ -406,7 +431,7 @@ ru: {
 en: {
   pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
   searchH:'Track search', searchPh:'Title or artist', find:'Search', searchHint:'Finds 30-second previews. Upload the full track yourself below.',
-  aiH:'lowend AI', aiPh:'Message lowend AI', aiHello:'lowend AI', aiSub:'Describe the sound or just chat', aiS1:'Make a sad slowed + reverb version', aiS2:'Add strong bass that is audible on a phone', aiS3:'Hi! What can you do?', aiErr:'AI is unavailable.', aiNew:'New chat', aiPlayer:'Player', aiOpen:'Open player', aiNote:'lowend AI can make mistakes.', aiMenu:'Menu',
+  aiH:'lowend AI', aiPh:'Message lowend AI', aiHello:'lowend AI', aiSub:'Describe the sound or just chat', aiS1:'Make a sad slowed + reverb version', aiS2:'Add strong bass that is audible on a phone', aiS3:'Hi! What can you do?', aiErr:'AI is unavailable.', aiNew:'New chat', aiPlayer:'Player', aiOpen:'Open player', aiNote:'lowend AI can make mistakes.', aiMenu:'Menu', aiChats:'Chats', aiNoChats:'No chats yet', aiDelQ:'Delete this chat?', aiDel:'Delete',
   h1:'1. Track', drop:'Tap and choose a song (mp3, m4a, wav)', h2:'2. Sound', chipLoud:'Louder', chipEcho:'Echo', chipWater:'Underwater', chipReset:'Reset',
   lSub:'Sub bass', lDist:'Distortion', chipSub:'Sub bass', chipDist:'Distortion', chipBBS:'Bass boosted + sped up', chipSR:'Slowed + reverb', chipNC:'Nightcore',
   lSpeed:'Speed', lBass:'Bass', lReverb:'Reverb', lPan:'8D pan', lVol:'Volume', lTreble:'Treble', lEcho:'Echo', lMuffle:'Underwater',
@@ -417,6 +442,7 @@ en: {
   premBuy:'Buy premium · 150 ⭐', premOpen:'Open the Studio', premRestore:'Already paid? Restore premium',
   premUntil:'Premium is active until ', premOn:'Premium is on. The Studio is unlocked.', premOff:'Remove premium', prem30:'Premium +30 d', premBadge:'premium',
   premStaff:'The Studio is available to you as an admin.', premErr:'Payments are not available right now.',
+  proH:'lowend AI Pro', proSub:'50 ⭐ Telegram Stars for 30 days', proB1:'200 AI messages per hour instead of 40', proB2:'A smarter AI model that understands complex requests better', proBuy:'Buy Pro · 50 ⭐', proRestore:'Already paid? Restore Pro', proUntil:'Pro is active until ', proOn:'Pro is on. The AI is smarter now.', proOff:'Remove Pro', pro30:'Pro +30 d', proBadge:'pro', proStaff:'Pro AI features are available to you as an admin.', proNav:'AI Pro',
   adminH:'Admin panel', studioBtn:'Studio: make a video', noticePh:'Message to everyone on the site', send:'Send',
   appH:'lowend app', appHint:'Add lowend to your phone screen as an app: no address bar and it opens faster.', appBtn:'Get the app',
   changeNick:'change nickname', logout:'log out', ownerLogin:'owner login',
@@ -885,15 +911,55 @@ async function doSearch() {
 /* ---------- меню + lowend AI (чат) ---------- */
 const AIR = { speed: [.3, 2], bass: [0, 40], reverb: [0, 100], pan: [0, 100], vol: [0, 400], treble: [0, 20], echo: [0, 100], muffle: [0, 100], sub: [0, 100], dist: [0, 100] };
 const AIK = { speed: 'lSpeed', bass: 'lBass', vol: 'lVol', treble: 'lTreble', reverb: 'lReverb', echo: 'lEcho', pan: 'lPan', muffle: 'lMuffle', sub: 'lSub', dist: 'lDist' };
-let chat = []; try { chat = JSON.parse(localStorage.getItem('lowendChat') || '[]').filter(m => m && typeof m.text === 'string').slice(-40); } catch (e) {}
-const saveChat = () => { try { localStorage.setItem('lowendChat', JSON.stringify(chat.slice(-40))); } catch (e) {} };
+// история чатов: список чатов в localStorage, как в Claude. cur: открытый чат (новый попадает в список после первого сообщения)
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const newThread = () => ({ id: uid(), title: '', ts: 0, msgs: [] });
+let chats = []; try { chats = JSON.parse(localStorage.getItem('lowendChats') || '[]').filter(c => c && c.id && Array.isArray(c.msgs) && c.msgs.length); } catch (e) {}
+try { // перенос единственного чата из старой версии
+  const old = JSON.parse(localStorage.getItem('lowendChat') || '[]').filter(m => m && typeof m.text === 'string');
+  if (old.length) { const f = old.find(m => m.role === 'user'); chats.push({ id: uid(), title: (f ? f.text : 'Chat').slice(0, 40), ts: Date.now(), msgs: old }); }
+  localStorage.removeItem('lowendChat');
+} catch (e) {}
+chats.sort((a, b) => b.ts - a.ts);
+let cur = chats[0] || newThread();
+const persistChats = () => {
+  chats = chats.slice(0, 30);
+  for (let i = 0; i < 4; i++) { try { localStorage.setItem('lowendChats', JSON.stringify(chats)); return; } catch (e) { chats = chats.slice(0, Math.max(1, chats.length - 5)); } }
+};
+function saveThread(th) { // вызывается после каждого нового сообщения
+  th.msgs = th.msgs.slice(-60); th.ts = Date.now();
+  if (!th.title) { const f = th.msgs.find(m => m.role === 'user'); th.title = (f ? f.text : 'Chat').replace(/\s+/g, ' ').trim().slice(0, 40); }
+  if (!chats.includes(th)) chats.unshift(th); else chats.sort((a, b) => b.ts - a.ts);
+  persistChats(); renderChatList();
+}
+function renderChatList() {
+  const box = $('dChats'); box.innerHTML = '';
+  $('dNone').hidden = chats.length > 0;
+  chats.forEach(c => {
+    const row = document.createElement('div'); row.className = 'crow' + (c === cur && !$('aiApp').hidden ? ' on' : '');
+    const b = document.createElement('button'); b.className = 'ct'; b.textContent = c.title; b.onclick = () => openThread(c);
+    const x = document.createElement('button'); x.className = 'cx'; x.setAttribute('aria-label', t('aiDel'));
+    x.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
+    x.onclick = e => { e.stopPropagation(); delThread(c); };
+    row.append(b, x); box.appendChild(row);
+  });
+}
+function openThread(th) { cur = th; showAI(true); drawerClose(); }
+function delThread(th) {
+  if (!confirm(t('aiDelQ'))) return;
+  chats = chats.filter(c => c !== th); persistChats();
+  if (cur === th) { cur = newThread(); if (!$('aiApp').hidden) renderChat(); }
+  renderChatList();
+}
+function newChat() { if (!cur.msgs.length) { showAI(true); } else { cur = newThread(); showAI(true); } renderChat(); renderChatList(); }
 let aiBusy = false;
 const drawer = $('drawer');
-function drawerOpen() { drawer.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => drawer.classList.add('open'))); }
+function drawerOpen() { renderChatList(); drawer.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => drawer.classList.add('open'))); }
 function drawerClose() { drawer.classList.remove('open'); setTimeout(() => { if (!drawer.classList.contains('open')) drawer.hidden = true; }, 240); }
 function showAI(on) {
   $('aiApp').hidden = !on; document.body.style.overflow = on ? 'hidden' : '';
   $('dAI').classList.toggle('on', on); $('dPlayer').classList.toggle('on', !on);
+  renderChatList();
   if (on) { renderChat(); if (!('ontouchstart' in window)) setTimeout(() => $('aiIn').focus(), 60); }
 }
 const toBottom = () => { const f = $('aiFeed'); f.scrollTop = f.scrollHeight; };
@@ -916,23 +982,23 @@ function msgEl(m, animate) {
 }
 function renderChat() {
   const col = $('aiCol'); col.innerHTML = '';
-  if (!chat.length) {
+  if (!cur.msgs.length) {
     const e = document.createElement('div'); e.className = 'ai-empty';
     e.innerHTML = '<h1></h1><p></p><div class="ai-sug"></div>';
     e.querySelector('h1').textContent = t('aiHello'); e.querySelector('p').textContent = t('aiSub');
     ['aiS1', 'aiS2', 'aiS3'].forEach(k => { const b = document.createElement('button'); b.textContent = t(k); b.onclick = () => aiSend(b.textContent); e.querySelector('.ai-sug').appendChild(b); });
     col.appendChild(e);
-  } else chat.forEach(m => col.appendChild(msgEl(m, false)));
+  } else cur.msgs.forEach(m => col.appendChild(msgEl(m, false)));
   toBottom();
 }
 async function aiSend(text) {
   text = String(text === undefined ? $('aiIn').value : text).trim(); if (!text || aiBusy) return;
   aiBusy = true; $('aiIn').value = ''; aiGrow(); $('aiSend').disabled = true;
-  chat.push({ role: 'user', text }); saveChat(); renderChat();
+  const th = cur; th.msgs.push({ role: 'user', text }); saveThread(th); renderChat();
   const typing = document.createElement('div'); typing.className = 'msg a dots'; typing.innerHTML = '<span></span><span></span><span></span>';
   $('aiCol').appendChild(typing); toBottom();
   try {
-    const r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: chat.slice(-12).map(m => ({ role: m.role, text: m.text })), current: S, lang }) });
+    const r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', 'x-token': tok }, body: JSON.stringify({ messages: th.msgs.slice(-12).map(m => ({ role: m.role, text: m.text })), current: S, lang }) });
     const j = await r.json(); if (!r.ok) throw new Error(j.error || t('aiErr'));
     const n = { ...S }, tags = [];
     for (const k in AIR) if (j[k] !== undefined && isFinite(+j[k])) {
@@ -941,17 +1007,19 @@ async function aiSend(text) {
     }
     if (tags.length) setSettings(...IDS.map(k => n[k]));
     if (j.search) { $('q').value = String(j.search).slice(0, 100); doSearch(); tags.push('🔎 ' + String(j.search).slice(0, 40)); }
-    const m = { role: 'assistant', text: String(j.say).slice(0, 1500), tags }; chat.push(m); saveChat();
-    typing.remove(); $('aiCol').appendChild(msgEl(m, true));
-  } catch (e) { typing.remove(); $('aiCol').appendChild(msgEl({ role: 'assistant', text: e.message || t('aiErr'), err: true }, false)); }
+    const m = { role: 'assistant', text: String(j.say).slice(0, 1500), tags }; th.msgs.push(m); saveThread(th);
+    typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl(m, true));
+  } catch (e) { typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl({ role: 'assistant', text: e.message || t('aiErr'), err: true }, false)); }
   aiBusy = false; $('aiSend').disabled = !$('aiIn').value.trim(); toBottom();
 }
 function aiGrow() { const a = $('aiIn'); a.style.height = 'auto'; a.style.height = Math.min(140, a.scrollHeight) + 'px'; }
 $('menuBtn').onclick = drawerOpen; $('aiMenu').onclick = drawerOpen;
 $('drScrim').onclick = drawerClose; $('drClose').onclick = drawerClose;
 $('dPlayer').onclick = () => { showAI(false); drawerClose(); };
+$('dPro').onclick = () => { showAI(false); drawerClose(); setTimeout(() => $('proCard').scrollIntoView({ behavior: 'smooth' }), 260); };
 $('dAI').onclick = () => { showAI(true); drawerClose(); };
-$('aiNew').onclick = () => { chat = []; saveChat(); renderChat(); };
+$('aiNew').onclick = newChat;
+$('dNew').onclick = () => { newChat(); drawerClose(); };
 $('aiSend').onclick = () => aiSend();
 $('aiIn').addEventListener('input', () => { aiGrow(); $('aiSend').disabled = aiBusy || !$('aiIn').value.trim(); });
 $('aiIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); aiSend(); } });
@@ -1008,11 +1076,12 @@ function renderUsers(list) {
     const b = document.createElement('b'); b.textContent = u.name + (u.id === me.id ? t('you') : '');
     if (ROLE[u.role]) { const t = document.createElement('span'); t.className = 'badge'; t.textContent = ROLE[u.role]; b.append(t); }
     if (u.prem) { const pb = document.createElement('span'); pb.className = 'badge'; pb.textContent = t('premBadge'); b.append(pb); }
+    if (u.pro) { const pb = document.createElement('span'); pb.className = 'badge'; pb.textContent = t('proBadge'); b.append(pb); }
     const sm = document.createElement('small'); sm.textContent = 'id ' + u.id + ' · ' + (u.age < 60 ? u.age + t('sec') : Math.floor(u.age / 60) + t('min'));
     meta.append(b, sm); row.append(meta);
     if (u.id !== me.id && u.role !== 'owner') {
       if (me.role === 'owner') row.append(mkBtn(u.role === 'admin' ? t('unadmin') : t('mkAdmin'), () => wsSend({ t: 'role', id: u.id, role: u.role === 'admin' ? 'user' : 'admin' })));
-      if (me.role === 'owner') { row.append(mkBtn(t('prem30'), () => wsSend({ t: 'grant', id: u.id, days: 30 }))); if (u.prem) row.append(mkBtn(t('premOff'), () => wsSend({ t: 'grant', id: u.id, days: 0 }))); }
+      if (me.role === 'owner') { row.append(mkBtn(t('prem30'), () => wsSend({ t: 'grant', id: u.id, days: 30 }))); if (u.prem) row.append(mkBtn(t('premOff'), () => wsSend({ t: 'grant', id: u.id, days: 0 }))); row.append(mkBtn(t('pro30'), () => wsSend({ t: 'grant', id: u.id, days: 30, kind: 'pro' }))); if (u.pro) row.append(mkBtn(t('proOff'), () => wsSend({ t: 'grant', id: u.id, days: 0, kind: 'pro' }))); }
       if (me.role === 'owner' || u.role === 'user') row.append(mkBtn(t('kick'), () => wsSend({ t: 'kick', id: u.id })));
     }
     $('users').append(row);
@@ -1101,7 +1170,7 @@ $('installBtn2').onclick = async () => {
 };
 
 /* ---------- premium ---------- */
-let prevPrem = null;
+let prevPrem = null, prevPro = null;
 const premActive = () => (me.premium || 0) > Date.now();
 function onPremium() {
   const act = premActive();
@@ -1110,11 +1179,21 @@ function onPremium() {
   $('premOpen').hidden = !act; $('premBuy').hidden = act;
   if (prevPrem === false && act) showNotice(t('premOn'));
   prevPrem = act;
+  onPro();
 }
-async function premLink(restore) {
+const proActive = () => (me.pro || 0) > Date.now();
+function onPro() {
+  const act = proActive(), staff = me.role !== 'user';
+  $('proActive').hidden = !(act || staff);
+  $('proActive').textContent = act ? t('proUntil') + new Date(me.pro).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB') : t('proStaff');
+  $('proBuy').hidden = act || staff; $('proRestoreP').hidden = act || staff;
+  if (prevPro === false && act) showNotice(t('proOn'));
+  prevPro = act;
+}
+async function premLink(restore, pro) {
   const w = window.open('', '_blank'); // открываем окно сразу, чтобы Safari не заблокировал его после запроса
   try {
-    const r = await fetch('/api/premium/link' + (restore ? '?r=1' : ''), { headers: { 'x-token': tok } });
+    const r = await fetch('/api/premium/link?' + (restore ? 'r=1&' : '') + (pro ? 'pro=1' : ''), { headers: { 'x-token': tok } });
     if (!r.ok) throw 0;
     const u = (await r.json()).url;
     if (w) w.location = u; else location.href = u;
@@ -1122,6 +1201,8 @@ async function premLink(restore) {
 }
 $('premBuy').onclick = () => premLink(false);
 $('premRestore').onclick = e => { e.preventDefault(); premLink(true); };
+$('proBuy').onclick = () => premLink(false, true);
+$('proRestore').onclick = e => { e.preventDefault(); premLink(true, true); };
 document.addEventListener('visibilitychange', () => { // вернулся из Telegram: подтянуть премиум
   if (document.hidden || !entered) return;
   if (!ws || ws.readyState > 1) { tries = 0; connect(); } else wsSend({ t: 'sync' });
