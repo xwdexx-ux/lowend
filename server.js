@@ -1,5 +1,5 @@
 // lowend: раздаёт index.html и ведёт онлайн, роли и админку через WebSocket.
-const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto');
+const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto'), zlib = require('zlib');
 const { WebSocketServer } = require('ws');
 
 const OWNER_KEY = process.env.OWNER_KEY || '';
@@ -88,9 +88,10 @@ async function addPro(p, days) { const until = Math.max(Date.now(), await getPro
 const isProNow = p => (proCache.get(p) || 0) > Date.now();
 async function aiTier(h) { // staff: владелец и админы (у них всё включено), pro: оплатил, free: остальные
   if (['owner', 'admin'].includes(roles[h])) return 'staff';
-  return (await getPro(pid(h))) > Date.now() ? 'pro' : 'free';
+  const p = pid(h); // значение уже в кэше после входа (hello/sync) и оплаты: лишний запрос в Redis на каждое сообщение не нужен
+  return (proCache.has(p) ? proCache.get(p) : await getPro(p)) > Date.now() ? 'pro' : 'free';
 }
-async function hasStudio(h) { return ['owner', 'admin'].includes(roles[h]) || (await getPremium(pid(h))) > Date.now(); }
+async function hasStudio(h) { const p = pid(h); return ['owner', 'admin'].includes(roles[h]) || (premCache.has(p) ? premCache.get(p) : await getPremium(p)) > Date.now(); }
 const json = (res, code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
 
 // Бот: /start, оплата Stars, /paysupport. Оплата идёт в боте, сайт только открывает ссылку на бота.
@@ -195,32 +196,51 @@ async function startBot() {
   } catch (e) { console.log('bot start error:', e.message); }
 }
 const SYS = 'Ты помощник видеостудии сайта lowend. Верни ТОЛЬКО JSON без пояснений и без markdown с полями: ' +
-  'text (строка до 150 символов, \\n для переноса), font (old|thin|sans|display|mono|serif; old это стиль старого видео пользователя: узкий шрифт, строки вплотную), resolution (одно из: 1022x576, 1280x720, 1920x1080, 720x1280, 1080x1920, 1080x1080; в current оно называется res; 1022x576 это размер по умолчанию, 16:9), ' +
+  'text (строка до 150 символов, \\n для переноса), font (old|thin|sans|display|mono|serif; old это стиль референса пользователя: Inter Light, суженный до 71%, строки вплотную; thin это тот же Inter Light обычной ширины), resolution (одно из: 1022x576, 1280x720, 1920x1080, 720x1280, 1080x1920, 1080x1080; в current оно называется res; 1022x576 это размер по умолчанию, 16:9), ' +
   'duration (секунды, число от 5 до 300), fade (секунды плавного появления текста из темноты, 0-10), track (точное название из savedTracks или null), color (hex текста), bg (hex фона), progress (true|false). ' +
   'Поля, которые пользователь не просил менять, оставляй такими же, как в current.';
 const aiHits = new Map();
 // Gemini: gemini-2.5-flash закрыт Google 16.10.2026 (отсюда 404), поэтому пробуем список моделей; рабочая запоминается
 const goodBy = { free: '', pro: '' };
-async function geminiText(key, systemText, contents, pro, long) {
+const deadUntil = new Map(); // модель -> до какого времени её пропускаем (404: такой модели нет, 429/503: перегружена), чтобы не тратить на неё запрос каждый раз
+const noThink = new Set();   // модели, которые не принимают thinkingConfig
+// «Размышление» ИИ ограничено по токенам: немного думает, но не долго, как в Claude. Меняется переменными AI_THINK_FREE / AI_THINK_PRO (0 = совсем без размышления)
+const THINK_FREE = Number.isFinite(+process.env.AI_THINK_FREE) && process.env.AI_THINK_FREE !== undefined && process.env.AI_THINK_FREE !== '' ? +process.env.AI_THINK_FREE : 512;
+const THINK_PRO = Number.isFinite(+process.env.AI_THINK_PRO) && process.env.AI_THINK_PRO !== undefined && process.env.AI_THINK_PRO !== '' ? +process.env.AI_THINK_PRO : 1024;
+async function geminiText(key, systemText, contents, pro, long, maxTok, thinkOverride) {
   const flash = [goodBy.free, process.env.GEMINI_MODEL, 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
   const proOnly = [goodBy.pro, process.env.GEMINI_PRO_MODEL, 'gemini-3.1-pro-preview'].filter(Boolean);
-  const models = [...new Set((pro ? [...proOnly, ...flash] : flash).filter(Boolean))];
+  let models = [...new Set((pro ? [...proOnly, ...flash] : flash).filter(Boolean))];
+  const alive = models.filter(m => (deadUntil.get(m) || 0) < Date.now());
+  if (alive.length) models = alive;
   let last;
-  for (const model of models) {
+  outer: for (const model of models) {
     const isPro = pro && proOnly.includes(model) && !flash.includes(model);
-    try {
-      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
-        method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, signal: AbortSignal.timeout(long ? (isPro ? 70000 : 50000) : (isPro ? 35000 : 25000)),
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: systemText }] }, contents, generationConfig: { responseMimeType: 'application/json' } })
-      });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok) { goodBy[isPro ? 'pro' : 'free'] = model; return ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join(''); }
-      last = new Error('Gemini ' + r.status + ' (' + model + '): ' + JSON.stringify(j).slice(0, 300));
-      if (model === goodBy.free) goodBy.free = ''; if (model === goodBy.pro) goodBy.pro = '';
-      if (![404, 429, 503].includes(r.status) && !isPro) break; // 400/403 на обычной модели: ключ или запрос, другая не поможет. Pro-модель просто пропускаем
-    } catch (e) { last = new Error('Gemini (' + model + '): ' + e.message); } // таймаут или сеть: пробуем следующую
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const think = !noThink.has(model), budget = thinkOverride !== undefined ? thinkOverride : (isPro ? THINK_PRO : THINK_FREE); // ограниченный бюджет размышления: ответ остаётся быстрым
+      const gen = { responseMimeType: 'application/json', maxOutputTokens: maxTok || (think ? budget + 1500 : 6000) };
+      if (think) gen.thinkingConfig = { thinkingBudget: budget };
+      try {
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, signal: AbortSignal.timeout(long ? (isPro ? 55000 : 40000) : (isPro ? 25000 : 15000)),
+          body: JSON.stringify({ systemInstruction: { parts: [{ text: systemText }] }, contents, generationConfig: gen })
+        });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok) { goodBy[isPro ? 'pro' : 'free'] = model; return ((j.candidates || [])[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join(''); }
+        last = new Error('Gemini ' + r.status + ' (' + model + '): ' + JSON.stringify(j).slice(0, 300));
+        if (r.status === 400 && think && /think/i.test(JSON.stringify(j))) { noThink.add(model); continue; } // модель не принимает thinkingConfig: повторяем без него
+        if (model === goodBy.free) goodBy.free = ''; if (model === goodBy.pro) goodBy.pro = '';
+        if ([404, 429, 503].includes(r.status)) deadUntil.set(model, Date.now() + (r.status === 404 ? 30 * 60000 : r.status === 429 ? 60000 : 20000));
+        if (![404, 429, 503].includes(r.status) && !isPro) break outer; // 400/403 на обычной модели: ключ или запрос, другая не поможет. Pro-модель просто пропускаем
+        break;
+      } catch (e) { // таймаут или сеть: пробуем следующую
+        last = new Error('Gemini (' + model + '): ' + e.message);
+        if (isPro) deadUntil.set(model, Date.now() + 30000);
+        break;
+      }
+    }
   }
-  throw last;
+  throw last || new Error('Gemini: no model');
 }
 function studioAI(req, res, h) {
   const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
@@ -228,6 +248,7 @@ function studioAI(req, res, h) {
   if (!GKEY && !AKEY) return out(501, { error: 'ИИ не подключён: добавь на сервере GEMINI_API_KEY (бесплатно). / AI is not connected: add GEMINI_API_KEY on the server.' });
   const hits = (aiHits.get(h) || []).filter(t => Date.now() - t < 3600000);
   if (hits.length >= 20) return out(429, { error: 'Лимит: 20 запросов ИИ в час. / Limit: 20 AI requests per hour.' });
+  if (aiHits.size > 5000) aiHits.clear();
   aiHits.set(h, [...hits, Date.now()]);
   let body = ''; req.on('data', d => { body += d; if (body.length > 8000) req.destroy(); });
   req.on('end', async () => {
@@ -236,13 +257,15 @@ function studioAI(req, res, h) {
       const user = JSON.stringify({ request: String(b.prompt).slice(0, 500), savedTracks: b.tracks, current: b.current });
       let text;
       if (GKEY) { // Gemini (есть бесплатный тариф)
-        text = await geminiText(GKEY, SYS, [{ role: 'user', parts: [{ text: user }] }], false);
+        text = await geminiText(GKEY, SYS, [{ role: 'user', parts: [{ text: user }] }], false, false, 700, 0);
       } else { // Claude (платный)
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' },
+          signal: AbortSignal.timeout(25000),
           body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5', max_tokens: 400, system: SYS, messages: [{ role: 'user', content: user }] })
         });
         const j = await r.json();
+        if (!r.ok) throw new Error('Claude ' + r.status + ': ' + JSON.stringify(j).slice(0, 300));
         text = (j.content || []).map(c => c.text || '').join('');
       }
       text = text.replace(/```json|```/g, '').trim();
@@ -331,7 +354,7 @@ function soundAI(req, res) {
         text = await geminiText(GKEY, sys, contents, smart, withFiles);
       } else {
         const r = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' },
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' }, signal: AbortSignal.timeout(withFiles ? 50000 : 30000),
           body: JSON.stringify({ model: smart ? (process.env.ANTHROPIC_PRO_MODEL || 'claude-sonnet-5-5') : (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5'), max_tokens: 900, system: sys, messages: msgs.map((m, i) => ({ role: m.role, content: i === msgs.length - 1 && withFiles ? [...att.images.map(x => ({ type: 'image', source: { type: 'base64', media_type: x.mime, data: x.data } })), ...att.pdfs.map(x => ({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: x.data } })), { type: 'text', text: m.text }] : m.text })) })
         });
         const j = await r.json();
@@ -388,7 +411,21 @@ async function musicPreview(req, res) {
   } catch (e) { res.writeHead(502); res.end('bad'); }
 }
 
-const APP_FILES = { '/manifest.webmanifest': 'application/manifest+json', '/sw.js': 'application/javascript; charset=utf-8',
+const fileCache = new Map(); // имя -> { m: mtime, raw, gz }
+function sendCached(req, res, name, type, cc) {
+  const fp = path.join(__dirname, name), bad = () => { res.writeHead(500); res.end(name + ' not found'); };
+  fs.stat(fp, (e, st) => {
+    if (e) return bad();
+    const go = ent => {
+      const h = { 'Content-Type': type, 'Cache-Control': cc, Vary: 'Accept-Encoding' };
+      if (/\bgzip\b/.test(req.headers['accept-encoding'] || '')) { h['Content-Encoding'] = 'gzip'; res.writeHead(200, h); res.end(ent.gz); } else { res.writeHead(200, h); res.end(ent.raw); }
+    };
+    const hit = fileCache.get(name);
+    if (hit && hit.m === st.mtimeMs) return go(hit);
+    fs.readFile(fp, (err, raw) => { if (err) return bad(); const ent = { m: st.mtimeMs, raw, gz: zlib.gzipSync(raw, { level: 9 }) }; fileCache.set(name, ent); go(ent); });
+  });
+}
+const APP_FILES = { '/inter-light.woff': 'font/woff', '/manifest.webmanifest': 'application/manifest+json', '/sw.js': 'application/javascript; charset=utf-8',
   '/icon-192.png': 'image/png', '/icon-512.png': 'image/png', '/apple-touch-icon.png': 'image/png' };
 const server = http.createServer((req, res) => {
   if (req.url === '/health') return res.end('ok');
@@ -408,16 +445,13 @@ const server = http.createServer((req, res) => {
     const sq = new URL(req.url, 'http://x').searchParams, mode = sq.get('r') ? 'r' : 'b', pro = sq.get('pro') ? 'p' : '';
     return json(res, 200, { url: 'https://t.me/' + BOT_USER + '?start=' + pro + mode + '_' + pid(hash(tk)) });
   }
-  if (req.url === '/studio.js' || req.url === '/api/studio-ai') { // только админы, владелец и премиум
+  if (pth === '/studio.js' || pth === '/api/studio-ai') { // только админы, владелец и премиум
     const th = hash(req.headers['x-token'] || '');
     return hasStudio(th).then(ok => {
       if (!ok) { res.writeHead(403); return res.end('forbidden'); }
-      if (req.url === '/api/studio-ai' && req.method === 'POST') return studioAI(req, res, th);
-      fs.readFile(path.join(__dirname, 'studio.js'), (err, data) => {
-        if (err) { res.writeHead(500); return res.end('studio.js not found'); }
-        res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
-        res.end(data);
-      });
+      if (pth === '/api/studio-ai' && req.method === 'POST') return studioAI(req, res, th);
+      if (pth === '/api/studio-ai') { res.writeHead(405); return res.end(); }
+      sendCached(req, res, 'studio.js', 'application/javascript; charset=utf-8', 'no-store');
     }).catch(() => { res.writeHead(500); res.end('error'); });
   }
   const file = req.url.split('?')[0], type = APP_FILES[file];
@@ -426,11 +460,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': type, 'Cache-Control': file === '/sw.js' ? 'no-cache' : 'public, max-age=86400' });
     res.end(data);
   });
-  fs.readFile(path.join(__dirname, 'index.html'), (err, data) => {
-    if (err) { res.writeHead(500); return res.end('index.html not found'); }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
-    res.end(data);
-  });
+  sendCached(req, res, 'index.html', 'text/html; charset=utf-8', 'no-cache');
 });
 
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 4096 });
@@ -478,7 +508,7 @@ wss.on('connection', ws => {
         if (!ok) { name = 'гость-' + id.slice(0, 3); send(ws, { t: 'nickTaken' }); }
       }
       if (ws.readyState !== 1) return;
-      await getPremium(pid(h)); await getPro(pid(h));
+      await Promise.all([getPremium(pid(h)), getPro(pid(h))]);
       if (ws.readyState !== 1) return;
       clients.set(ws, { h, id, name, since: Date.now() });
       return broadcast();
@@ -489,7 +519,7 @@ wss.on('connection', ws => {
       if (roles[c.h]) { delete roles[c.h]; saveRoles(); }
       clients.delete(ws); send(ws, { t: 'loggedout' }); return broadcast();
     }
-    if (m.t === 'sync') { await getPremium(pid(c.h)); await getPro(pid(c.h)); return broadcast(); } // сайт вернулся из Telegram: обновить премиум
+    if (m.t === 'sync') { await Promise.all([getPremium(pid(c.h)), getPro(pid(c.h))]); return broadcast(); } // сайт вернулся из Telegram: обновить премиум
     const role = roleOf(c.h);
 
     if (m.t === 'auth') { // вход владельца по ключу из переменной OWNER_KEY
@@ -529,4 +559,7 @@ wss.on('connection', ws => {
 setInterval(() => wss.clients.forEach(w => { if (!w.alive) return w.terminate(); w.alive = false; w.ping(); }), 30000);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => { console.log('lowend on :' + PORT); startBot(); });
+server.listen(PORT, '0.0.0.0', () => {
+  console.log('lowend on :' + PORT); startBot();
+  if (BASE_URL && process.env.KEEP_ALIVE === '1') setInterval(() => fetch(BASE_URL + '/health').catch(() => {}), 10 * 60 * 1000); // KEEP_ALIVE=1: не даём серверу уснуть
+});

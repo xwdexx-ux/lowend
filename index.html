@@ -15,6 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="lowend">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;600&family=Space+Mono:wght@400;700&display=swap">
 <style>
+@font-face{font-family:"Lowend Inter";src:url(/inter-light.woff) format("woff");font-weight:300;font-style:normal;font-display:swap}
 :root{--a:#fff;--b:#8a8a8a;--ink:#000;--text:#fff;--muted:#8a8a8a;--glass:#0d0d0d;--edge:#242424;--track:#2a2a2a;--thumb:#fff;--onA:#000;--playbg:#fff;--playfg:#000;--field:#000;color-scheme:dark}
 *{box-sizing:border-box;margin:0}
 html,body{min-height:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
@@ -138,7 +139,8 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 /* премиум */
 .prem-sub{color:var(--muted);margin:-4px 0 14px}
 .pv{position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000;display:grid;place-items:center;text-align:center;color:#fff;margin-bottom:14px}
-.pv-t{font:300 clamp(18px,5.4vw,30px)/1.02 -apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;opacity:0;animation:pvfade 8s infinite}
+.pv{container-type:inline-size}
+.pv-t{font:300 clamp(18px,5.4vw,30px)/1.095 "Lowend Inter",-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:8.44cqw;transform:scaleX(.71);opacity:0;animation:pvfade 8s infinite}
 .pv-bar{position:absolute;left:0;bottom:0;height:4px;background:#fff;width:0;animation:pvbar 8s linear infinite}
 @keyframes pvfade{0%,6%{opacity:0}34%,92%{opacity:1}100%{opacity:0}}
 @keyframes pvbar{from{width:0}to{width:100%}}
@@ -272,7 +274,7 @@ html.ai-lock,html.ai-lock body{overflow:hidden;overscroll-behavior:none}
       <div class="cover" id="cover"><span><svg viewBox="0 0 64 64" width="100%" height="100%" fill="currentColor" aria-hidden="true"><rect x="6" y="28" width="4" height="8" rx="2"/><rect x="12" y="24" width="4" height="16" rx="2"/><rect x="18" y="19" width="4" height="26" rx="2"/><rect x="24" y="14" width="4" height="36" rx="2"/><rect x="30" y="8" width="4" height="48" rx="2"/><rect x="36" y="14" width="4" height="36" rx="2"/><rect x="42" y="19" width="4" height="26" rx="2"/><rect x="48" y="24" width="4" height="16" rx="2"/><rect x="54" y="28" width="4" height="8" rx="2"/></svg></span><img id="coverImg" alt=""></div>
       <canvas id="viz" width="400" height="56" aria-hidden="true"></canvas>
       <div class="title" id="name"></div>
-      <div class="hint" id="sub"></div>
+      <div class="hint" id="subline"></div>
       <div class="bar">
         <button class="play" id="play" disabled data-aria="play" aria-label="Play">▶</button>
         <div class="seekbox">
@@ -517,8 +519,8 @@ function applyLang() {
   document.querySelectorAll('[data-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.aria)));
   const other = lang === 'ru' ? 'EN' : 'RU';
   $('langBtn').textContent = other; $('langBtnW').textContent = other;
-  if (!buffer) { $('name').textContent = t('pick'); $('sub').textContent = t('pickSub'); }
-  else $('sub').textContent = t('len') + fmt(buffer.duration);
+  if (!buffer) { $('name').textContent = t('pick'); $('subline').textContent = t('pickSub'); }
+  else $('subline').textContent = t('len') + fmt(buffer.duration);
   if (typeof onlineN === 'number') showOnline();
   applyTheme();
   if (window.studioLang) window.studioLang(); // студия перерисовывается на выбранном языке
@@ -638,7 +640,7 @@ async function findCoverOnline(name, tok) {
 }
 
 function setTitle(t, sub) {
-  title = t; $('name').textContent = t; if (sub !== undefined) $('sub').textContent = sub;
+  title = t; $('name').textContent = t; if (sub !== undefined) $('subline').textContent = sub;
   if ('mediaSession' in navigator && window.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({ title: t, artist: 'lowend', artwork: coverUrl ? [{ src: coverUrl, sizes: '512x512', type: coverMime }] : [] });
 }
 
@@ -1008,8 +1010,8 @@ function msgEl(m, animate) {
   if (m.atts && m.atts.length) { const w = document.createElement('div'); w.className = 'ai-thumbs'; if (!m.text) w.style.marginBottom = '0'; m.atts.forEach(a => w.appendChild(attEl(a, false))); d.insertBefore(w, tx); }
   if (m.role === 'user' || !animate) tx.textContent = m.text;
   else { // печатается постепенно, как ответ в чате
-    const full = m.text, step = Math.max(1, Math.ceil(full.length / 80)); let n = 0;
-    const tick = () => { n = Math.min(full.length, n + step); tx.textContent = full.slice(0, n); toBottom(); if (n < full.length) setTimeout(tick, 18); };
+    const full = m.text, step = Math.max(2, Math.ceil(full.length / 40)); let n = 0;
+    const tick = () => { n = Math.min(full.length, n + step); tx.textContent = full.slice(0, n); toBottom(); if (n < full.length) setTimeout(tick, 12); };
     tick();
   }
   if (m.tags && m.tags.length) {
@@ -1201,12 +1203,16 @@ const okey = () => { try { return localStorage.getItem('lowend_okey') || ''; } c
 const hello = () => wsSend({ t: 'hello', token: tok, name: nick, key: okey() || undefined });
 let autoIn = false; try { autoIn = localStorage.getItem('lowend_in') === '1'; } catch (e) {}
 if (autoIn) { entered = true; $('welcome').style.display = 'none'; } // уже входил раньше: экран приветствия не показываем
+let reconT = 0;
 function connect() {
   if (location.protocol === 'file:' || kicked) return;
-  try { ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); } catch (e) { return; }
-  ws.onopen = () => { opened = true; tries = 0; if (entered) hello(); };
-  ws.onmessage = e => { try { onMsg(JSON.parse(e.data)); } catch (err) {} };
-  ws.onclose = () => { if (!kicked && (opened || tries < 3)) setTimeout(connect, Math.min(15000, 1500 * ++tries)); };
+  clearTimeout(reconT);
+  if (ws && ws.readyState <= 1) return; // уже подключены или подключаемся: второе соединение не нужно
+  let w; try { w = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'); } catch (e) { return; }
+  ws = w;
+  w.onopen = () => { opened = true; tries = 0; if (entered) hello(); };
+  w.onmessage = e => { try { onMsg(JSON.parse(e.data)); } catch (err) {} };
+  w.onclose = () => { if (ws !== w) return; if (!kicked && (opened || tries < 3)) reconT = setTimeout(connect, Math.min(15000, 1500 * ++tries)); };
 }
 let onlineN = null, lastUsers = null;
 function showOnline() { $('online').textContent = t('online') + onlineN; $('onlineW').textContent = t('onlineW') + onlineN; }
@@ -1378,8 +1384,8 @@ const openStudioFlow = async () => {
       if (!r.ok) throw 0;
       const el = document.createElement('script'); el.textContent = await r.text(); document.head.append(el);
     }
-    window.openStudio();
-  } catch (e) { showNotice(t('studioOnly')); }
+  } catch (e) { return showNotice(t('studioOnly')); }
+  try { await window.openStudio(); } catch (e) { console.log('studio error:', e); }
 };
 $('studioBtn').onclick = openStudioFlow; $('premOpen').onclick = openStudioFlow;
 $('pTheme').onclick = () => { theme = theme === 'light' ? 'dark' : 'light'; try { localStorage.setItem('lowend_theme', theme); } catch (e) {} applyTheme(); };

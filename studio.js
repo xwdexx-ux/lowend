@@ -1,24 +1,33 @@
 // Студия lowend: видео с текстом поверх музыки. Этот файл сервер отдаёт только админам и владельцу.
 (() => {
   if (window.openStudio) return;
-  const EN = {"— выбрать —": "— select —", "Как в старом видео (узкий)": "Like the old video (narrow)", "Тонкий (как в твоём видео)": "Thin (like in your video)", "Обычный": "Regular", "Жирный": "Bold", "Моно": "Mono", "Курсив с засечками": "Italic serif", "16:9 · 1022×576 (как в твоём видео)": "16:9 · 1022×576 (like in your video)", "Между началом и концом меньше секунды. Трек длится ": "Start and end are less than a second apart. Track length: ", "Скачать видео (": "Download video (", "Сохранить в Фото": "Save to Photos", "Скачать файл (в «Файлы»)": "Download file (to Files)", "Готово! Нажми «Сохранить в Фото» и выбери «Сохранить видео».": "Done! Tap “Save to Photos” and choose “Save Video”.", "Готово!": "Done!", "Не получилось записать видео.": "Could not record the video.", "Записываю: ": "Recording: ", " с. Не закрывай страницу и не блокируй экран.": " s. Don’t close the page or lock the screen.", "Этот браузер не умеет записывать видео.": "This browser can’t record video.", "Трек не найден.": "Track not found.", "Сначала загрузи трек на главной или выбери сохранённый.": "First load a track on the main screen or pick a saved one.", "ИИ думает…": "AI is thinking…", "Готово. Проверь превью и нажми «Сделать видео».": "Done. Check the preview and tap “Make video”.", "ИИ недоступен.": "AI is unavailable.", "Сначала загрузи трек на главной.": "Load a track on the main screen first.", "Название пресета:": "Preset name:", "Текущий трек на главной": "Current track on the main screen", "Трек на главной: ": "Main track: ", ". Секунды отсчитываются по времени самого трека.": ". Seconds are counted by the track’s own time.", "Студия": "Studio", "Закрыть": "Close", "ИИ-помощник (необязательно)": "AI assistant (optional)", "Например: как в прошлый раз, но текст lowend и 30 секунд": "E.g. like last time, but with the text “lowend” and 30 seconds", "ИИ": "AI", "Трек": "Track", "Мои пресеты (стиль без текста)": "My presets (style without text)", "Сохранить": "Save", "Удалить пресет": "Delete preset", "Текст": "Text", "Начало = позиция плеера": "Start = player position", "Конец = позиция плеера": "End = player position", "Шрифт": "Font", "Разрешение": "Resolution", "Цвет текста": "Text color", "Цвет фона": "Background color", "Размер текста": "Text size", "Длина (сек, 0 = до конца)": "Length (sec, 0 = to the end)", "Появление из темноты (сек)": "Fade in from black (sec)", "Начать трек с (сек)": "Start track at (sec)", "Закончить на (сек, 0 = до конца)": "End at (sec, 0 = to the end)", "Затухание звука в конце (сек)": "Audio fade-out at the end (sec)", "Полоска прогресса внизу": "Progress bar at the bottom", "Сделать видео": "Make video"};
+  const EN = {"— выбрать —": "— select —", "Inter Light, узкий (как в референсе)": "Inter Light, narrow (like the reference)", "Inter Light (обычная ширина)": "Inter Light (normal width)", "Обычный": "Regular", "Жирный": "Bold", "Моно": "Mono", "Курсив с засечками": "Italic serif", "16:9 · 1022×576 (как в твоём видео)": "16:9 · 1022×576 (like in your video)", "Между началом и концом меньше секунды. Трек длится ": "Start and end are less than a second apart. Track length: ", "Скачать видео (": "Download video (", "Сохранить в Фото": "Save to Photos", "Скачать файл (в «Файлы»)": "Download file (to Files)", "Готово! Нажми «Сохранить в Фото» и выбери «Сохранить видео».": "Done! Tap “Save to Photos” and choose “Save Video”.", "Готово!": "Done!", "Не получилось записать видео.": "Could not record the video.", "Записываю: ": "Recording: ", " с. Не закрывай страницу и не блокируй экран.": " s. Don’t close the page or lock the screen.", "Этот браузер не умеет записывать видео.": "This browser can’t record video.", "Трек не найден.": "Track not found.", "Сначала загрузи трек на главной или выбери сохранённый.": "First load a track on the main screen or pick a saved one.", "ИИ думает…": "AI is thinking…", "Готово. Проверь превью и нажми «Сделать видео».": "Done. Check the preview and tap “Make video”.", "ИИ недоступен.": "AI is unavailable.", "Сначала загрузи трек на главной.": "Load a track on the main screen first.", "Название пресета:": "Preset name:", "Текущий трек на главной": "Current track on the main screen", "Трек на главной: ": "Main track: ", ". Секунды отсчитываются по времени самого трека.": ". Seconds are counted by the track’s own time.", "Студия": "Studio", "Закрыть": "Close", "ИИ-помощник (необязательно)": "AI assistant (optional)", "Например: как в прошлый раз, но текст lowend и 30 секунд": "E.g. like last time, but with the text “lowend” and 30 seconds", "ИИ": "AI", "Трек": "Track", "Мои пресеты (стиль без текста)": "My presets (style without text)", "Сохранить": "Save", "Удалить пресет": "Delete preset", "Текст": "Text", "Начало = позиция плеера": "Start = player position", "Конец = позиция плеера": "End = player position", "Шрифт": "Font", "Разрешение": "Resolution", "Цвет текста": "Text color", "Цвет фона": "Background color", "Размер текста": "Text size", "Длина (сек, 0 = до конца)": "Length (sec, 0 = to the end)", "Появление из темноты (сек)": "Fade in from black (sec)", "Начать трек с (сек)": "Start track at (sec)", "Закончить на (сек, 0 = до конца)": "End at (sec, 0 = to the end)", "Затухание звука в конце (сек)": "Audio fade-out at the end (sec)", "Полоска прогресса внизу": "Progress bar at the bottom", "Сделать видео": "Make video"};
   const tr = x => (typeof lang !== 'undefined' && lang === 'en' && EN[x]) || x; // язык берём с сайта
   const FONTS = {
-    old: '300 {s}px -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
-    thin: '300 {s}px -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
+    old: '300 {s}px "Lowend Inter", -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
+    thin: '300 {s}px "Lowend Inter", -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
     sans: '400 {s}px "Instrument Sans", sans-serif',
     display: '800 {s}px "Bricolage Grotesque", sans-serif',
     mono: '400 {s}px "Space Mono", monospace',
     serif: 'italic 400 {s}px Georgia, serif'
   };
-  const FONT_NAMES = { old: 'Как в старом видео (узкий)', thin: 'Тонкий (как в твоём видео)', sans: 'Обычный', display: 'Жирный', mono: 'Моно', serif: 'Курсив с засечками' };
-  // стиль старого видео: узкие буквы, строки вплотную, текст чуть ниже центра, пустые строки не нужны
-  const FSTYLE = { old: { sx: .82, lh: 1.02, dy: .024, noBlank: true } };
+  const FONT_NAMES = { old: 'Inter Light, узкий (как в референсе)', thin: 'Inter Light (обычная ширина)', sans: 'Обычный', display: 'Жирный', mono: 'Моно', serif: 'Курсив с засечками' };
+  // стиль референса: Inter Light, суженный до 71% (замер по скриншоту: высота/ширина строки даёт 70,5%), межстрочный 1,095,
+  // чуть скруглённые края (тонкая обводка в цвет текста), текст чуть ниже центра, пустые строки не нужны
+  const FSTYLE = { old: { sx: .71, lh: 1.095, dy: .024, noBlank: true, round: .006 } };
+  // Inter Light отдаёт сервер (inter-light.woff). Без него canvas рисует системным шрифтом и текст выглядит «не таким»
+  const ensureInter = async () => {
+    try {
+      if (![...document.fonts].some(f => String(f.family).replace(/[\"']/g, '') === 'Lowend Inter')) document.fonts.add(new FontFace('Lowend Inter', 'url(/inter-light.woff)', { weight: '300' }));
+      await document.fonts.load('300 40px "Lowend Inter"', 'aя(');
+    } catch (e) {}
+  };
   const RES = { '1022x576': '16:9 · 1022×576 (как в твоём видео)', '1280x720': '16:9 · 720p', '1920x1080': '16:9 · 1080p', '720x1280': '9:16 · 720p', '1080x1920': '9:16 · 1080p', '1080x1080': '1:1 · 1080', '3840x2160': '16:9 · 4K · 3840×2160', '2160x3840': '9:16 · 4K · 2160×3840' };
   const SIZE_RES = { '16:9': '1280x720', '9:16': '720x1280', '1:1': '1080x1080' };
-  const d = { text: '', font: 'old', size: 15, color: '#ffffff', bg: '#000000', res: '1022x576', dur: 60, progress: false, fade: 2.6, start: 0, end: 0, afade: 3 };
+  const d = { v: 2, text: '', font: 'old', size: 15, color: '#ffffff', bg: '#000000', res: '1022x576', dur: 60, progress: false, fade: 2.6, start: 0, end: 0, afade: 3 };
   // студия помнит последние настройки, поэтому «как в прошлый раз» работает и после перезагрузки
   try { Object.assign(d, JSON.parse(localStorage.getItem('lowend_studio2') || '{}')); } catch (e) {}
+  if (d.v !== 2) { d.v = 2; d.font = 'old'; d.size = 15; } // старые сохранения: переходим на шрифт референса
   d.start = 0; d.end = 0; // начало и конец не запоминаем: у каждого трека свои
   if (!FONTS[d.font]) d.font = 'old';
   if (!RES[d.res]) d.res = '1022x576';
@@ -63,10 +72,13 @@
     const a = (d.fade > 0 && t !== undefined) ? Math.min(1, t / d.fade) : 1; // плавное появление текста из темноты
     g.globalAlpha = 1; g.fillStyle = d.bg; g.fillRect(0, 0, w, h);
     const fs = Math.round(h * d.size / 100), st = FSTYLE[d.font] || {}, sx = st.sx || 1;
-    g.font = FONTS[d.font].replace('{s}', fs); g.fillStyle = d.color; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = FONTS[d.font].replace('{s}', fs); g.fillStyle = d.color; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fontKerning = 'normal'; g.textRendering = 'geometricPrecision';
     let lines = wrap(g, d.text, w * .84 / sx); if (st.noBlank) lines = lines.filter(Boolean);
     const lh = fs * (st.lh || 1.35), y0 = h * (.5 + (st.dy || 0)) - (lines.length - 1) * lh / 2;
-    g.globalAlpha = a; g.save(); g.scale(sx, 1); lines.forEach((l, i) => g.fillText(l, w / 2 / sx, y0 + i * lh)); g.restore();
+    g.globalAlpha = a; g.save(); g.scale(sx, 1);
+    if (st.round) { g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = fs * st.round; g.strokeStyle = d.color; }
+    lines.forEach((l, i) => { const x = w / 2 / sx, y = y0 + i * lh; g.fillText(l, x, y); if (st.round) g.strokeText(l, x, y); });
+    g.restore();
     if (d.progress) {
       const bw = w * .84, bh = Math.max(3, h * .005), x = w * .08, y = h * .93;
       g.globalAlpha = .25 * a; g.fillRect(x, y, bw, bh); g.globalAlpha = a; g.fillRect(x, y, bw * prog, bh);
@@ -118,11 +130,11 @@
       const sel = $('stTrack').value;
       if (sel !== 'cur') {
         const t = (await tx('readonly', s => s.getAll())).find(x => String(x.id) === sel); if (!t) throw new Error(tr('Трек не найден.'));
-        await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan, t.vol, t.treble, t.echo, t.muffle);
+        await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan, t.vol, t.treble, t.echo, t.muffle, t.sub || 0, t.dist || 0);
       }
       if (!buffer) throw new Error(tr('Сначала загрузи трек на главной или выбери сохранённый.'));
       initAudio(); if (ctx.state !== 'running') await ctx.resume();
-      try { await document.fonts.load('800 40px "Bricolage Grotesque"'); await document.fonts.load('400 40px "Space Mono"'); await document.fonts.load('400 40px "Instrument Sans"'); } catch (e) {}
+      try { await ensureInter(); await document.fonts.load('800 40px "Bricolage Grotesque"'); await document.fonts.load('400 40px "Space Mono"'); await document.fonts.load('400 40px "Instrument Sans"'); } catch (e) {}
       const uhd = /^(3840x2160|2160x3840)$/.test(d.res); // 4K: нужен уровень H.264 5.1
       const type = [...(uhd ? ['video/mp4;codecs=avc1.640033,mp4a.40.2'] : []), 'video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1.4D401F,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
       if (!type) throw new Error(tr('Этот браузер не умеет записывать видео.'));
@@ -182,7 +194,7 @@
         <div class="f"><label for="stRes">${tr('Разрешение')}</label><select id="stRes">${Object.entries(RES).map(([k, v]) => `<option value="${k}">${tr(v)}</option>`).join('')}</select></div>
         <div class="f"><label for="stColor">${tr('Цвет текста')}</label><input type="color" id="stColor"></div>
         <div class="f"><label for="stBg">${tr('Цвет фона')}</label><input type="color" id="stBg"></div>
-        <div class="f"><label for="stSize">${tr('Размер текста')}</label><input type="range" id="stSize" min="4" max="16" step="1"></div>
+        <div class="f"><label for="stSize">${tr('Размер текста')}</label><input type="range" id="stSize" min="4" max="16" step="0.5"></div>
         <div class="f"><label for="stDur">${tr('Длина (сек, 0 = до конца)')}</label><input type="number" id="stDur" min="0" max="300"></div>
         <div class="f"><label for="stFade">${tr('Появление из темноты (сек)')}</label><input type="number" id="stFade" min="0" max="10" step="0.1"></div>
         <div class="f"><label for="stStart">${tr('Начать трек с (сек)')}</label><input type="number" id="stStart" min="0" step="0.1"></div>
@@ -226,6 +238,7 @@
     sel.innerHTML = '<option value="cur">' + tr('Текущий трек на главной') + '</option>' + all.map(t => `<option value="${t.id}">${t.title.replace(/</g, '&lt;')}</option>`).join('');
     if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
     if (!d.text) d.text = autoText();
+    await ensureInter();
     $('stLen').textContent = buffer ? tr('Трек на главной: ') + fmt(buffer.duration) + tr('. Секунды отсчитываются по времени самого трека.') : '';
     sync();
   };
