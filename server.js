@@ -225,9 +225,9 @@ async function geminiText(key, systemText, contents, pro, long) {
 function studioAI(req, res, h) {
   const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
   const GKEY = process.env.GEMINI_API_KEY, AKEY = process.env.ANTHROPIC_API_KEY;
-  if (!GKEY && !AKEY) return out(501, { error: 'ИИ не подключён: добавь на сервере GEMINI_API_KEY (бесплатно).' });
+  if (!GKEY && !AKEY) return out(501, { error: 'ИИ не подключён: добавь на сервере GEMINI_API_KEY (бесплатно). / AI is not connected: add GEMINI_API_KEY on the server.' });
   const hits = (aiHits.get(h) || []).filter(t => Date.now() - t < 3600000);
-  if (hits.length >= 20) return out(429, { error: 'Лимит: 20 запросов ИИ в час.' });
+  if (hits.length >= 20) return out(429, { error: 'Лимит: 20 запросов ИИ в час. / Limit: 20 AI requests per hour.' });
   aiHits.set(h, [...hits, Date.now()]);
   let body = ''; req.on('data', d => { body += d; if (body.length > 8000) req.destroy(); });
   req.on('end', async () => {
@@ -247,7 +247,7 @@ function studioAI(req, res, h) {
       }
       text = text.replace(/```json|```/g, '').trim();
       out(200, JSON.parse(text));
-    } catch (e) { console.log('studio ai error:', e.message); out(500, { error: 'ИИ не смог обработать запрос.' }); }
+    } catch (e) { console.log('studio ai error:', e.message); out(500, { error: 'ИИ не смог обработать запрос. / AI could not process the request.' }); }
   });
 }
 
@@ -296,7 +296,7 @@ const hasAttach = a => !!(a && (a.images.length || a.pdfs.length || a.files.leng
 function soundAI(req, res) {
   const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
   const GKEY = process.env.GEMINI_API_KEY, AKEY = process.env.ANTHROPIC_API_KEY;
-  if (!GKEY && !AKEY) return out(501, { error: 'ИИ не подключён: добавь на сервере GEMINI_API_KEY (бесплатно).' });
+  if (!GKEY && !AKEY) return out(501, { error: 'ИИ не подключён: добавь на сервере GEMINI_API_KEY (бесплатно). / AI is not connected: add GEMINI_API_KEY on the server.' });
   readBody(req, res, 10e6, async body => {
     try {
       const th = hash(req.headers['x-token'] || ''), tier = await aiTier(th), now = Date.now(), smart = tier !== 'free';

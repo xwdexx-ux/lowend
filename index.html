@@ -521,6 +521,7 @@ function applyLang() {
   else $('sub').textContent = t('len') + fmt(buffer.duration);
   if (typeof onlineN === 'number') showOnline();
   applyTheme();
+  if (window.studioLang) window.studioLang(); // студия перерисовывается на выбранном языке
   if (typeof renderLib === 'function') renderLib();
   if (typeof lastUsers !== 'undefined' && lastUsers) renderUsers(lastUsers);
   if (typeof me !== 'undefined') { $('pRole').textContent = roleName(me.role); if (typeof onPremium === 'function') onPremium(); }
