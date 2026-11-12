@@ -278,10 +278,10 @@
     return segs;
   }
   // --- эдит: собирается из чата lowend AI (window.studioEdit). Интерфейса эдита в Студии больше нет: Студия только для видео с текстом ---
-  Object.assign(EN, { 'Добавь хотя бы одно видео.': 'Add at least one video.', 'Разбираю музыку…': 'Analyzing the music…', 'Готовлю клипы…': 'Preparing the clips…', 'Открываю ': 'Opening ', 'Не получилось открыть ': 'Could not open ', 'Студия занята: дождись конца текущей сборки.': 'The Studio is busy: wait for the current render to finish.', 'Записываю: ': 'Recording: ', ' с. Не закрывай страницу и не блокируй экран.': ' s. Do not close the page or lock the screen.', 'Не получилось достать звук из видео ': 'Could not get the sound from ', 'В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ': 'The music video has under 2 seconds of sound after that second. Its length: ', 'Этот браузер не умеет записывать видео.': 'This browser cannot record video.' });
+  Object.assign(EN, { 'Добавь хотя бы одно видео.': 'Add at least one video.', 'Разбираю музыку…': 'Analyzing the music…', 'Готовлю клипы…': 'Preparing the clips…', 'Открываю видео…': 'Opening the videos…', 'Не получилось открыть ': 'Could not open ', 'Студия занята: дождись конца текущей сборки.': 'The Studio is busy: wait for the current render to finish.', 'Записываю: ': 'Recording: ', ' с. Не закрывай страницу и не блокируй экран.': ' s. Do not close the page or lock the screen.', 'Не получилось достать звук из видео ': 'Could not get the sound from ', 'В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ': 'The music video has under 2 seconds of sound after that second. Its length: ', 'Этот браузер не умеет записывать видео.': 'This browser cannot record video.' });
   const evenN = n => Math.max(2, Math.round(n / 2) * 2);
   const FILTERS = ['none', 'bw', 'warm', 'cool', 'moody', 'vivid'], TEMPOS = ['fast', 'mid', 'slow', 'mix'], POS = ['top', 'center', 'bottom'], QS = ['fast', 'high', 'max'];
-  const ED_DEF = { music: 1, also: false, res: '1080x1920', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
+  const ED_DEF = { music: 1, also: false, res: 'v:0', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
   function edSpec(j, items) { // настройки от ИИ -> проверенные настройки эдита
     const E = { ...ED_DEF }, has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
     if (+j.music >= 1 && +j.music <= items.length) E.music = Math.round(+j.music);
@@ -305,50 +305,40 @@
     if (QS.includes(j.quality)) E.quality = j.quality;
     return E;
   }
+  // кэши: одно и то же видео не разбираем дважды (ключ: имя + размер + дата)
+  const edMeta = new Map(), edAud = new Map(), fkey = f => f.name + ':' + f.size + ':' + (f.lastModified || 0);
+  function edProbe(f) { // длина и размер видео
+    const k = fkey(f); if (edMeta.has(k)) return edMeta.get(k);
+    const p = new Promise((res, rej) => {
+      const url = URL.createObjectURL(f), v = document.createElement('video'); let fin = false, tm = 0;
+      const end = ok => {
+        if (fin) return; fin = true; clearTimeout(tm); v.onloadedmetadata = v.onerror = null;
+        const r = { dur: v.duration, w: v.videoWidth || 1080, h: v.videoHeight || 1920 }; v.removeAttribute('src'); try { v.load(); } catch (e) {} URL.revokeObjectURL(url);
+        ok && isFinite(r.dur) && r.dur >= .5 ? res(r) : rej(new Error(tr('Не получилось открыть ') + f.name));
+      };
+      v.preload = 'metadata'; v.muted = true; v.playsInline = true; tm = setTimeout(() => end(false), 8000);
+      v.onloadedmetadata = () => end(true); v.onerror = () => end(false); v.src = url;
+    });
+    edMeta.set(k, p); p.catch(() => edMeta.delete(k)); return p;
+  }
+  function edAudio(f) { // звук видео целиком: декодируется один раз и запоминается
+    const k = fkey(f); if (edAud.has(k)) return edAud.get(k);
+    initAudio();
+    const p = f.arrayBuffer().then(ab => ctx.decodeAudioData(ab));
+    edAud.set(k, p); p.catch(() => edAud.delete(k));
+    while (edAud.size > 2) edAud.delete(edAud.keys().next().value);
+    return p;
+  }
+  // чат зовёт это сразу при прикреплении видео: пока ИИ думает, всё уже разобрано и сборка стартует без ожидания
+  window.studioWarm = files => {
+    const fl = (files || []).slice(0, 12); if (!fl.length) return;
+    fl.forEach(f => edProbe(f).catch(() => {}));
+    edAudio(fl[0]).catch(() => {}); // первое видео по умолчанию даёт музыку
+  };
   async function edLoad(files, say) {
-    const items = [];
-    try {
-      for (const f of files.slice(0, 12)) {
-        say(tr('Открываю ') + f.name + '…');
-        const url = URL.createObjectURL(f), v = document.createElement('video'); v.preload = 'metadata'; v.muted = true; v.playsInline = true; v.src = url;
-        const ok = await new Promise(res => { v.onloadedmetadata = () => res(true); v.onerror = () => res(false); setTimeout(() => res(false), 8000); });
-        const it = { file: f, url, dur: v.duration, name: f.name, w: v.videoWidth || 1080, h: v.videoHeight || 1920 };
-        v.removeAttribute('src'); v.load();
-        if (!ok || !isFinite(it.dur) || it.dur < .5) { URL.revokeObjectURL(url); throw new Error(tr('Не получилось открыть ') + f.name); }
-        items.push(it);
-      }
-    } catch (e) { items.forEach(i => URL.revokeObjectURL(i.url)); throw e; }
-    return items;
-  }
-  // фильтры без ctx.filter (его нет в Safari): режимы наложения работают везде
-  let noiseCv = null, noisePat = null;
-  function edFx(g, w, h, E, fl) {
-    const f = E.filter;
-    if (f !== 'none') {
-      g.save();
-      if (f === 'bw') { g.globalCompositeOperation = 'saturation'; g.fillStyle = '#808080'; g.fillRect(0, 0, w, h); }
-      else if (f === 'warm') { g.globalCompositeOperation = 'soft-light'; g.fillStyle = 'rgba(255,150,40,.5)'; g.fillRect(0, 0, w, h); }
-      else if (f === 'cool') { g.globalCompositeOperation = 'soft-light'; g.fillStyle = 'rgba(40,120,255,.5)'; g.fillRect(0, 0, w, h); }
-      else if (f === 'moody') { g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgba(120,135,175,.6)'; g.fillRect(0, 0, w, h); }
-      else if (f === 'vivid') { g.globalCompositeOperation = 'soft-light'; g.globalAlpha = .7; g.drawImage(g.canvas, 0, 0); }
-      g.restore();
-    }
-    if (E.vignette) { const r = Math.hypot(w, h) / 2, gr = g.createRadialGradient(w / 2, h / 2, r * .35, w / 2, h / 2, r); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
-    if (E.grain) {
-      if (!noisePat) { noiseCv = document.createElement('canvas'); noiseCv.width = noiseCv.height = 256; const n = noiseCv.getContext('2d'), im = n.createImageData(256, 256); for (let i = 0; i < im.data.length; i += 4) { const v = Math.random() * 255; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; } n.putImageData(im, 0, 0); noisePat = g.createPattern(noiseCv, 'repeat'); }
-      g.save(); g.translate(-Math.random() * 256, -Math.random() * 256); g.globalCompositeOperation = 'overlay'; g.globalAlpha = .2; g.fillStyle = noisePat; g.fillRect(0, 0, w + 256, h + 256); g.restore();
-    }
-    if (E.flash && fl > 0) { g.fillStyle = 'rgba(255,255,255,' + (.45 * fl).toFixed(3) + ')'; g.fillRect(0, 0, w, h); }
-  }
-  function edTextDraw(g, w, h, E, t) {
-    const txt = String(E.text || '').trim(); if (!txt) return;
-    const fs = Math.round(h * E.textSize / 100), st = FSTYLE[E.textFont] || {}, sx = st.sx || 1;
-    g.save(); g.font = FONTS[E.textFont].replace('{s}', fs); g.fillStyle = E.textColor; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fontKerning = 'normal';
-    g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = fs * .25;
-    let lines = wrap(g, txt, w * .84 / sx); if (st.noBlank) lines = lines.filter(Boolean);
-    const lh = fs * (st.lh || 1.3), cy = E.textPos === 'top' ? h * .14 : E.textPos === 'bottom' ? h * .86 : h * .5, y0 = cy - (lines.length - 1) * lh / 2;
-    g.globalAlpha = Math.min(1, t / .5); g.scale(sx, 1);
-    lines.forEach((l, i) => g.fillText(l, w / 2 / sx, y0 + i * lh)); g.restore();
+    say(tr('Открываю видео…'));
+    const fl = files.slice(0, 12), metas = await Promise.all(fl.map(edProbe));
+    return fl.map((f, i) => ({ file: f, url: URL.createObjectURL(f), dur: metas[i].dur, name: f.name, w: metas[i].w, h: metas[i].h }));
   }
   async function edBuild(E, items, say) {
     const pool = [];
@@ -356,10 +346,7 @@
       const mi = Math.min(E.music - 1, items.length - 1), music = items[mi];
       initAudio(); if (ctx.state !== 'running') await ctx.resume();
       try { await ensureInter(); await document.fonts.load('800 40px "Bricolage Grotesque"'); await document.fonts.load('400 40px "Space Mono"'); await document.fonts.load('400 40px "Instrument Sans"'); } catch (e) {}
-      say(tr('Разбираю музыку…'));
-      let buf; try { buf = await ctx.decodeAudioData(await music.file.arrayBuffer()); } catch (e) { throw new Error(tr('Не получилось достать звук из видео ') + music.name); }
-      const start = Math.max(0, E.start), len = Math.min(Math.max(3, E.len), 120, buf.duration - start);
-      if (len < 2) throw new Error(tr('В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ') + Math.round(buf.duration) + tr(' с'));
+      const bufP = edAudio(music.file); bufP.catch(() => {}); // звук разбирается, пока готовятся клипы
       let srcIdx = items.map((_, i) => i).filter(i => i !== mi);
       if (!srcIdx.length || E.also) srcIdx = items.map((_, i) => i);
       const usedBy = {}, per = srcIdx.length === 1 ? 2 : 1;
@@ -369,7 +356,10 @@
         pool.push({ v, dur: items[i].dur, used: usedBy[i] || (usedBy[i] = []) });
       }
       say(tr('Готовлю клипы…'));
-      await Promise.all(pool.map(p => new Promise(res => { p.v.onloadeddata = res; p.v.onerror = res; setTimeout(res, 10000); p.v.play().then(() => p.v.pause(), () => {}); })));
+      const ready = v => new Promise(res => { let n = 0; const chk = () => (v.readyState >= 2 || ++n > 100) ? res() : setTimeout(chk, 50); v.addEventListener('error', res, { once: true }); chk(); v.play().then(() => v.pause(), () => {}); });
+      const [buf] = await Promise.all([bufP.catch(() => { throw new Error(tr('Не получилось достать звук из видео ') + music.name); }), ...pool.map(p => ready(p.v))]);
+      const start = Math.max(0, E.start), len = Math.min(Math.max(3, E.len), 120, buf.duration - start);
+      if (len < 2) throw new Error(tr('В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ') + Math.round(buf.duration) + tr(' с'));
       const gaps = { fast: [.3], mid: [.6], slow: [1.2], mix: [.3, .6, .3, 1.2, .45] }[E.tempo] || [.6];
       const cuts = edCuts(edBeats(buf, start, start + len), len, gaps, Math.random), segs = edPlan(cuts, pool, Math.random);
       let w, h; const vm = /^v:(\d+)$/.exec(E.res);
@@ -420,12 +410,6 @@
       const r = await edBuild(edSpec(spec || {}, items), items, say);
       return { blob: r.blob, ext: r.type.startsWith('video/mp4') ? 'mp4' : 'webm', name: 'lowend-edit' };
     } finally { items.forEach(i => URL.revokeObjectURL(i.url)); busy = false; }
-  };
-  // чат lowend AI передаёт сюда настройки видео с текстом: Студия открывается уже настроенной, остаётся нажать кнопку. Эдит из клипов собирается в самом чате (studioEdit)
-  window.studioFromChat = async spec => {
-    if (!spec || typeof spec !== 'object' || spec.type !== 'text') return;
-    await window.openStudio();
-    applyAI(spec); $('stStatus').textContent = tr('ИИ настроил видео. Проверь превью и нажми «Сделать видео».');
   };
   window.studioLang = async () => { if (!root || busy) return; const open = !root.hidden; root.remove(); root = null; if (open) await window.openStudio(); fillPresetsSafe(); };
   const fillPresetsSafe = () => { if (root) fillPresets(); };
