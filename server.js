@@ -177,6 +177,24 @@ const SYS = 'Ты помощник видеостудии сайта lowend. В�
   'duration (секунды, число от 5 до 300), fade (секунды плавного появления текста из темноты, 0-10), track (точное название из savedTracks или null), color (hex текста), bg (hex фона), progress (true|false). ' +
   'Поля, которые пользователь не просил менять, оставляй такими же, как в current.';
 const aiHits = new Map();
+// Gemini: gemini-2.5-flash закрыт Google 16.10.2026 (отсюда 404), поэтому пробуем список моделей; рабочая запоминается
+let goodGemini = '';
+async function geminiText(key, systemText, contents) {
+  const models = [...new Set([goodGemini, process.env.GEMINI_MODEL, 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'].filter(Boolean))];
+  let last;
+  for (const model of models) {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: systemText }] }, contents, generationConfig: { responseMimeType: 'application/json' } })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { goodGemini = model; return ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join(''); }
+    last = new Error('Gemini ' + r.status + ' (' + model + '): ' + JSON.stringify(j).slice(0, 300));
+    if (model === goodGemini) goodGemini = '';
+    if (![404, 429, 503].includes(r.status)) break; // 400/403: ключ или запрос, другая модель не поможет
+  }
+  throw last;
+}
 function studioAI(req, res, h) {
   const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
   const GKEY = process.env.GEMINI_API_KEY, AKEY = process.env.ANTHROPIC_API_KEY;
@@ -191,13 +209,7 @@ function studioAI(req, res, h) {
       const user = JSON.stringify({ request: String(b.prompt).slice(0, 500), savedTracks: b.tracks, current: b.current });
       let text;
       if (GKEY) { // Gemini (есть бесплатный тариф)
-        const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
-          method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': GKEY },
-          body: JSON.stringify({ systemInstruction: { parts: [{ text: SYS }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json' } })
-        });
-        const j = await r.json();
-        text = ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join('');
+        text = await geminiText(GKEY, SYS, [{ role: 'user', parts: [{ text: user }] }]);
       } else { // Claude (платный)
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' },
@@ -208,7 +220,7 @@ function studioAI(req, res, h) {
       }
       text = text.replace(/```json|```/g, '').trim();
       out(200, JSON.parse(text));
-    } catch (e) { out(500, { error: 'ИИ не смог обработать запрос.' }); }
+    } catch (e) { console.log('studio ai error:', e.message); out(500, { error: 'ИИ не смог обработать запрос.' }); }
   });
 }
 
@@ -245,14 +257,7 @@ function soundAI(req, res) {
       const sys = SOUND_SYS + '\nЯзык интерфейса: ' + (b.lang === 'ru' ? 'ru' : 'en') + '. Текущие настройки звука: ' + JSON.stringify(b.current || {});
       let text;
       if (GKEY) {
-        const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
-          method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': GKEY },
-          body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: msgs.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })), generationConfig: { responseMimeType: 'application/json' } })
-        });
-        const j = await r.json();
-        if (!r.ok) throw new Error('Gemini ' + r.status + ': ' + JSON.stringify(j).slice(0, 300));
-        text = ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join('');
+        text = await geminiText(GKEY, sys, msgs.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })));
       } else {
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' },
