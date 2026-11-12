@@ -146,11 +146,75 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .prem-list li{margin:6px 0}
 #premActive{margin:0 0 12px;color:var(--text);font-weight:600}
 #users .item{flex-wrap:wrap}
+
+/* меню + lowend AI (чат) */
+.logoRow{display:flex;align-items:center}
+.menub,.ai-ib{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;margin:0;padding:0;border:0;background:transparent;color:var(--text);border-radius:12px;cursor:pointer;flex:none}
+.menub{margin-left:-8px;margin-right:6px}
+.menub:hover,.ai-ib:hover{background:var(--glass)}
+.menub svg,.ai-ib svg{width:22px;height:22px}
+#drawer{position:fixed;inset:0;z-index:80}
+#drawer[hidden],#aiApp[hidden]{display:none}
+#drawer .scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);opacity:0;transition:opacity .2s}
+#drawer .panel{position:relative;width:min(300px,84vw);height:100%;background:var(--glass);border-right:1px solid var(--edge);padding:calc(14px + env(safe-area-inset-top)) 12px 16px;display:flex;flex-direction:column;gap:4px;transform:translateX(-100%);transition:transform .22s ease}
+#drawer.open .scrim{opacity:1}#drawer.open .panel{transform:none}
+.dl-h{display:flex;align-items:center;justify-content:space-between;padding:0 4px 14px 10px;font:800 24px "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.ditem{display:flex;align-items:center;gap:12px;width:100%;margin:0;padding:12px;border:0;border-radius:12px;background:transparent;color:var(--text);font:500 16px "Instrument Sans",sans-serif;text-align:left;cursor:pointer}
+.ditem:hover,.ditem.on{background:var(--track)}
+.ditem svg{width:20px;height:20px;flex:none}
+#aiApp{position:fixed;inset:0;z-index:70;background:var(--ink);color:var(--text);display:flex;flex-direction:column;height:100vh;height:100dvh}
+.ai-top{display:flex;align-items:center;justify-content:space-between;padding:calc(8px + env(safe-area-inset-top)) 10px 8px}
+.ai-title{font:600 16px "Instrument Sans",sans-serif}
+.ai-feed{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px 16px}
+.ai-col{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.ai-empty{text-align:center;margin-top:14vh}
+.ai-empty h1{font:800 38px "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
+.ai-empty p{color:var(--muted);margin-top:6px}
+.ai-sug{display:flex;flex-direction:column;gap:8px;margin-top:26px;align-items:stretch}
+.ai-sug button{margin:0;text-align:left;padding:12px 16px;border:1px solid var(--edge);background:var(--glass);color:var(--text);border-radius:16px;font:400 15px "Instrument Sans",sans-serif;cursor:pointer}
+.ai-sug button:hover{border-color:var(--a)}
+.msg{overflow-wrap:anywhere;white-space:pre-wrap}
+.msg.u{align-self:flex-end;max-width:85%;background:var(--glass);border:1px solid var(--edge);padding:10px 14px;border-radius:18px}
+.msg.a{align-self:flex-start;max-width:100%;line-height:1.6}
+.msg.a.err{color:var(--muted)}
+.ai-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.ai-tag{border:1px solid var(--edge);border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted);white-space:normal}
+button.ai-tag{margin:0;background:var(--a);color:var(--onA);border-color:transparent;font-weight:600;cursor:pointer}
+.dots span{display:inline-block;width:7px;height:7px;margin-right:5px;border-radius:50%;background:var(--muted);animation:aid 1.2s infinite}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@keyframes aid{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+.ai-comp{padding:6px 12px calc(10px + env(safe-area-inset-bottom))}
+.ai-box{max-width:720px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--glass);border:1px solid var(--edge);border-radius:26px;padding:6px 6px 6px 16px}
+.ai-box textarea{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:400 16px/1.45 "Instrument Sans",system-ui,sans-serif;resize:none;max-height:140px;padding:8px 0}
+.ai-box textarea::placeholder{color:var(--muted)}
+.ai-send{flex:none;width:38px;height:38px;margin:0;padding:0;border:0;border-radius:50%;background:var(--a);color:var(--onA);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.ai-send:disabled{opacity:.3;cursor:not-allowed}
+.ai-note{text-align:center;color:var(--muted);font-size:12px;margin-top:8px}
 </style>
 </head>
 <body>
+<div id="drawer" hidden>
+  <div class="scrim" id="drScrim"></div>
+  <nav class="panel" aria-label="Menu">
+    <div class="dl-h"><span>lowend</span><button class="ai-ib" id="drClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <button class="ditem on" id="dPlayer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span data-i="aiPlayer"></span></button>
+    <button class="ditem" id="dAI"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg><span data-i="aiH"></span></button>
+  </nav>
+</div>
+<div id="aiApp" hidden role="dialog" aria-label="lowend AI">
+  <div class="ai-top">
+    <button class="ai-ib" id="aiMenu" data-aria="aiMenu" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="ai-title">lowend AI</div>
+    <button class="ai-ib" id="aiNew" data-aria="aiNew" aria-label="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
+  </div>
+  <div class="ai-feed" id="aiFeed"><div class="ai-col" id="aiCol"></div></div>
+  <div class="ai-comp">
+    <div class="ai-box"><textarea id="aiIn" rows="1" maxlength="500" data-ph="aiPh" placeholder="Message lowend AI" autocomplete="off"></textarea><button class="ai-send" id="aiSend" disabled aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+    <div class="ai-note" data-i="aiNote"></div>
+  </div>
+</div>
 <div class="wrap">
-  <header><div class="logo">lowend</div><div style="display:flex;align-items:center;gap:12px"><span class="hint" id="online"></span><button class="btn ghost sm langb" id="langBtn">RU</button><button class="av" id="avBtn" data-aria="profile" aria-label="Profile"></button></div></header>
+  <header><div class="logoRow"><button class="menub" id="menuBtn" data-aria="aiMenu" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><div class="logo">lowend</div></div><div style="display:flex;align-items:center;gap:12px"><span class="hint" id="online"></span><button class="btn ghost sm langb" id="langBtn">RU</button><button class="av" id="avBtn" data-aria="profile" aria-label="Profile"></button></div></header>
 
   <div class="grid">
     <section class="card" aria-label="Плеер">
@@ -183,13 +247,6 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
           <input type="file" id="file">
           <span data-i="drop"></span>
         </label>
-      </section>
-
-      <section class="card" aria-label="lowend AI" style="margin-bottom:18px">
-        <h2 data-i="aiH"></h2>
-        <div class="src"><input type="text" id="aiQ" maxlength="300" data-ph="aiPh" placeholder="Describe the sound" autocomplete="off"><button class="btn" id="aiBtn" data-i="aiGo"></button></div>
-        <p class="hint" style="margin-top:8px" data-i="aiHint"></p>
-        <p class="status" id="aiStatus" role="status"></p>
       </section>
 
       <section class="card fx" aria-label="Эффекты">
@@ -312,7 +369,7 @@ const LANG = {
 ru: {
   pick:'Выбери трек', pickSub:'Загрузи песню ниже', len:'Длина: ', nosound:'Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.',
   searchH:'Поиск треков', searchPh:'Название или исполнитель', find:'Найти', searchHint:'Находит 30-секундные превью. Полный трек загрузи сам ниже.',
-  aiH:'lowend AI', aiPh:'Например: грустный slowed с мощным басом', aiGo:'Сделать', aiHint:'Опиши, как должен звучать трек, и ИИ выставит настройки. Можно попросить подобрать песню.', aiThink:'ИИ думает…', aiDone:'Готово, настройки выставлены.', aiErr:'ИИ недоступен.',
+  aiH:'lowend AI', aiPh:'Напиши lowend AI', aiHello:'lowend AI', aiSub:'Опиши звук словами или просто пообщайся', aiS1:'Сделай грустный slowed с реверберацией', aiS2:'Добавь мощный бас, но чтобы слышно было на телефоне', aiS3:'Привет! Что ты умеешь?', aiErr:'ИИ недоступен.', aiNew:'Новый чат', aiPlayer:'Плеер', aiOpen:'К плееру', aiNote:'lowend AI может ошибаться.', aiMenu:'Меню',
   h1:'1. Трек', drop:'Нажми и выбери песню (mp3, m4a, wav)', h2:'2. Звук', chipLoud:'Громче', chipEcho:'Эхо', chipWater:'Под водой', chipReset:'Сбросить',
   lSub:'Саб-бас', lDist:'Искажение', chipSub:'Саб-бас', chipDist:'Искажение', chipBBS:'Бас + ускоренный', chipSR:'Замедленный + реверб', chipNC:'Найткор',
   lSpeed:'Скорость', lBass:'Бас', lReverb:'Реверб', lPan:'8D панорама', lVol:'Громкость', lTreble:'Высокие', lEcho:'Эхо', lMuffle:'Под водой',
@@ -349,7 +406,7 @@ ru: {
 en: {
   pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
   searchH:'Track search', searchPh:'Title or artist', find:'Search', searchHint:'Finds 30-second previews. Upload the full track yourself below.',
-  aiH:'lowend AI', aiPh:'e.g. sad slowed with heavy bass', aiGo:'Go', aiHint:'Describe how the track should sound and the AI sets the controls. You can also ask it to find a song.', aiThink:'AI is thinking…', aiDone:'Done, settings applied.', aiErr:'AI is unavailable.',
+  aiH:'lowend AI', aiPh:'Message lowend AI', aiHello:'lowend AI', aiSub:'Describe the sound or just chat', aiS1:'Make a sad slowed + reverb version', aiS2:'Add strong bass that is audible on a phone', aiS3:'Hi! What can you do?', aiErr:'AI is unavailable.', aiNew:'New chat', aiPlayer:'Player', aiOpen:'Open player', aiNote:'lowend AI can make mistakes.', aiMenu:'Menu',
   h1:'1. Track', drop:'Tap and choose a song (mp3, m4a, wav)', h2:'2. Sound', chipLoud:'Louder', chipEcho:'Echo', chipWater:'Underwater', chipReset:'Reset',
   lSub:'Sub bass', lDist:'Distortion', chipSub:'Sub bass', chipDist:'Distortion', chipBBS:'Bass boosted + sped up', chipSR:'Slowed + reverb', chipNC:'Nightcore',
   lSpeed:'Speed', lBass:'Bass', lReverb:'Reverb', lPan:'8D pan', lVol:'Volume', lTreble:'Treble', lEcho:'Echo', lMuffle:'Underwater',
@@ -825,23 +882,80 @@ async function doSearch() {
   } catch (e) { qs(e.message === 'many' ? t('tooOften') : t('searchFail')); }
   $('qBtn').disabled = false;
 }
-/* ---------- lowend AI: описание словами -> настройки звука ---------- */
+/* ---------- меню + lowend AI (чат) ---------- */
 const AIR = { speed: [.3, 2], bass: [0, 40], reverb: [0, 100], pan: [0, 100], vol: [0, 400], treble: [0, 20], echo: [0, 100], muffle: [0, 100], sub: [0, 100], dist: [0, 100] };
-async function askSoundAI() {
-  const p = $('aiQ').value.trim(), st = $('aiStatus'); if (!p) return;
-  $('aiBtn').disabled = true; st.textContent = t('aiThink');
-  try {
-    const r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: p, current: S, lang }) });
-    const j = await r.json(); if (!r.ok) throw new Error(j.error || t('aiErr'));
-    const n = { ...S };
-    for (const k in AIR) if (j[k] !== undefined && isFinite(+j[k])) n[k] = Math.round(Math.min(AIR[k][1], Math.max(AIR[k][0], +j[k])) * 100) / 100;
-    setSettings(...IDS.map(k => n[k]));
-    st.textContent = String(j.say || t('aiDone')).slice(0, 240);
-    if (j.search) { $('q').value = String(j.search).slice(0, 100); doSearch(); }
-  } catch (e) { st.textContent = e.message || t('aiErr'); }
-  $('aiBtn').disabled = false;
+const AIK = { speed: 'lSpeed', bass: 'lBass', vol: 'lVol', treble: 'lTreble', reverb: 'lReverb', echo: 'lEcho', pan: 'lPan', muffle: 'lMuffle', sub: 'lSub', dist: 'lDist' };
+let chat = []; try { chat = JSON.parse(localStorage.getItem('lowendChat') || '[]').filter(m => m && typeof m.text === 'string').slice(-40); } catch (e) {}
+const saveChat = () => { try { localStorage.setItem('lowendChat', JSON.stringify(chat.slice(-40))); } catch (e) {} };
+let aiBusy = false;
+const drawer = $('drawer');
+function drawerOpen() { drawer.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => drawer.classList.add('open'))); }
+function drawerClose() { drawer.classList.remove('open'); setTimeout(() => { if (!drawer.classList.contains('open')) drawer.hidden = true; }, 240); }
+function showAI(on) {
+  $('aiApp').hidden = !on; document.body.style.overflow = on ? 'hidden' : '';
+  $('dAI').classList.toggle('on', on); $('dPlayer').classList.toggle('on', !on);
+  if (on) { renderChat(); if (!('ontouchstart' in window)) setTimeout(() => $('aiIn').focus(), 60); }
 }
-$('aiBtn').onclick = askSoundAI; $('aiQ').addEventListener('keydown', e => e.key === 'Enter' && askSoundAI());
+const toBottom = () => { const f = $('aiFeed'); f.scrollTop = f.scrollHeight; };
+function msgEl(m, animate) {
+  const d = document.createElement('div'); d.className = 'msg ' + (m.role === 'user' ? 'u' : 'a') + (m.err ? ' err' : '');
+  const tx = document.createElement('span'); d.appendChild(tx);
+  if (m.role === 'user' || !animate) tx.textContent = m.text;
+  else { // печатается постепенно, как ответ в чате
+    const full = m.text, step = Math.max(1, Math.ceil(full.length / 80)); let n = 0;
+    const tick = () => { n = Math.min(full.length, n + step); tx.textContent = full.slice(0, n); toBottom(); if (n < full.length) setTimeout(tick, 18); };
+    tick();
+  }
+  if (m.tags && m.tags.length) {
+    const w = document.createElement('div'); w.className = 'ai-tags';
+    m.tags.forEach(x => { const s = document.createElement('span'); s.className = 'ai-tag'; s.textContent = x; w.appendChild(s); });
+    const o = document.createElement('button'); o.className = 'ai-tag'; o.textContent = t('aiOpen'); o.onclick = () => showAI(false); w.appendChild(o);
+    d.appendChild(w);
+  }
+  return d;
+}
+function renderChat() {
+  const col = $('aiCol'); col.innerHTML = '';
+  if (!chat.length) {
+    const e = document.createElement('div'); e.className = 'ai-empty';
+    e.innerHTML = '<h1></h1><p></p><div class="ai-sug"></div>';
+    e.querySelector('h1').textContent = t('aiHello'); e.querySelector('p').textContent = t('aiSub');
+    ['aiS1', 'aiS2', 'aiS3'].forEach(k => { const b = document.createElement('button'); b.textContent = t(k); b.onclick = () => aiSend(b.textContent); e.querySelector('.ai-sug').appendChild(b); });
+    col.appendChild(e);
+  } else chat.forEach(m => col.appendChild(msgEl(m, false)));
+  toBottom();
+}
+async function aiSend(text) {
+  text = String(text === undefined ? $('aiIn').value : text).trim(); if (!text || aiBusy) return;
+  aiBusy = true; $('aiIn').value = ''; aiGrow(); $('aiSend').disabled = true;
+  chat.push({ role: 'user', text }); saveChat(); renderChat();
+  const typing = document.createElement('div'); typing.className = 'msg a dots'; typing.innerHTML = '<span></span><span></span><span></span>';
+  $('aiCol').appendChild(typing); toBottom();
+  try {
+    const r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: chat.slice(-12).map(m => ({ role: m.role, text: m.text })), current: S, lang }) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || t('aiErr'));
+    const n = { ...S }, tags = [];
+    for (const k in AIR) if (j[k] !== undefined && isFinite(+j[k])) {
+      const v = Math.round(Math.min(AIR[k][1], Math.max(AIR[k][0], +j[k])) * 100) / 100; n[k] = v;
+      tags.push(t(AIK[k]) + ': ' + (k === 'speed' ? v.toFixed(2) + 'x' : k === 'bass' || k === 'treble' ? '+' + v + ' dB' : v + '%'));
+    }
+    if (tags.length) setSettings(...IDS.map(k => n[k]));
+    if (j.search) { $('q').value = String(j.search).slice(0, 100); doSearch(); tags.push('🔎 ' + String(j.search).slice(0, 40)); }
+    const m = { role: 'assistant', text: String(j.say).slice(0, 1500), tags }; chat.push(m); saveChat();
+    typing.remove(); $('aiCol').appendChild(msgEl(m, true));
+  } catch (e) { typing.remove(); $('aiCol').appendChild(msgEl({ role: 'assistant', text: e.message || t('aiErr'), err: true }, false)); }
+  aiBusy = false; $('aiSend').disabled = !$('aiIn').value.trim(); toBottom();
+}
+function aiGrow() { const a = $('aiIn'); a.style.height = 'auto'; a.style.height = Math.min(140, a.scrollHeight) + 'px'; }
+$('menuBtn').onclick = drawerOpen; $('aiMenu').onclick = drawerOpen;
+$('drScrim').onclick = drawerClose; $('drClose').onclick = drawerClose;
+$('dPlayer').onclick = () => { showAI(false); drawerClose(); };
+$('dAI').onclick = () => { showAI(true); drawerClose(); };
+$('aiNew').onclick = () => { chat = []; saveChat(); renderChat(); };
+$('aiSend').onclick = () => aiSend();
+$('aiIn').addEventListener('input', () => { aiGrow(); $('aiSend').disabled = aiBusy || !$('aiIn').value.trim(); });
+$('aiIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); aiSend(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!drawer.hidden) drawerClose(); else if (!$('aiApp').hidden) showAI(false); } });
 $('qBtn').onclick = doSearch;
 $('q').addEventListener('keydown', e => e.key === 'Enter' && doSearch());
 /* ---------- онлайн, роли, админка ---------- */

@@ -212,12 +212,13 @@ function studioAI(req, res, h) {
   });
 }
 
-// lowend AI на главной: описание словами -> настройки звука (доступно всем, лимит по IP)
-const SOUND_SYS = 'Ты lowend AI, помощник сайта для обработки музыки (slowed, reverb, bass boost, nightcore). Верни ТОЛЬКО JSON без markdown с полями: ' +
-  'say (1-2 коротких предложения для пользователя на языке запроса: что сделал и почему), ' +
-  'speed (0.3-2, 1 = оригинал, slowed ~0.8-0.9, nightcore ~1.25-1.35), bass (0-40 дБ), reverb (0-100), pan (0-100, 8D), vol (0-400, обычно 100), treble (0-20), echo (0-100), muffle (0-100, эффект «из-под воды»), sub (0-100), dist (0-100), ' +
-  'search (необязательно: строка для поиска песни, только если пользователь просит подобрать или найти трек). ' +
-  'Поля, которые не просили менять, оставляй такими же, как в current. Не ставь bass выше 20 и sub выше 60 без явной просьбы: на динамике телефона сверхнизкие частоты не слышны, лучше умеренный bass и немного dist.';
+// lowend AI: чат внутри сайта. Отвечает на любые сообщения и, если просят, ещё и выставляет настройки звука.
+const SOUND_SYS = 'Ты lowend AI, дружелюбный чат-ассистент внутри сайта lowend (обработка музыки: slowed, reverb, bass boost, nightcore, 8D). ' +
+  'Отвечай на ЛЮБЫЕ сообщения естественно и по делу, как ассистент в чате: приветствия, вопросы про музыку, звук и сайт, обычный разговор. Пиши коротко, на языке пользователя, обычным текстом (без markdown-заголовков), не выдумывай факты. ' +
+  'Верни ТОЛЬКО JSON без markdown: {"say": "твой ответ"}. ' +
+  'Только если пользователь просит изменить звук, добавь в тот же JSON нужные поля: speed (0.3-2, 1 = оригинал, slowed ~0.8-0.9, nightcore ~1.25-1.35), bass (0-40 дБ), reverb (0-100), pan (0-100, 8D), vol (0-400, обычно 100), treble (0-20), echo (0-100), muffle (0-100, «из-под воды»), sub (0-100), dist (0-100). ' +
+  'Поля, которые не просили менять, не включай. Если просят найти или подобрать песню, добавь search (строка для поиска). ' +
+  'Не ставь bass выше 20 и sub выше 60 без явной просьбы: на динамике телефона сверхнизкие частоты не слышны, лучше умеренный bass и немного dist.';
 const soundHits = new Map();
 function soundAI(req, res) {
   const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
@@ -226,34 +227,49 @@ function soundAI(req, res) {
   const ip = ipOf(req), now = Date.now();
   if (soundHits.size > 5000) soundHits.clear();
   const hits = (soundHits.get(ip) || []).filter(t => now - t < 3600000);
-  if (hits.length >= 15) return out(429, { error: 'Лимит: 15 запросов ИИ в час. / Limit: 15 AI requests per hour.' });
+  if (hits.length >= 40) return out(429, { error: 'Лимит: 40 сообщений в час. / Limit: 40 messages per hour.' });
   soundHits.set(ip, [...hits, now]);
-  let body = ''; req.on('data', d => { body += d; if (body.length > 4000) req.destroy(); });
+  let body = ''; req.on('data', d => { body += d; if (body.length > 20000) req.destroy(); });
   req.on('end', async () => {
     try {
       const b = JSON.parse(body);
-      const user = JSON.stringify({ request: String(b.prompt || '').slice(0, 300), current: b.current, language: b.lang === 'ru' ? 'ru' : 'en' });
+      // история чата: только user/assistant, роли чередуются, начинается с user
+      const msgs = [];
+      for (const m of (Array.isArray(b.messages) ? b.messages : []).slice(-12)) {
+        const role = m.role === 'assistant' ? 'assistant' : 'user', text = String(m.text || '').slice(0, 600).trim();
+        if (!text) continue;
+        if (msgs.length && msgs[msgs.length - 1].role === role) msgs[msgs.length - 1].text += '\n' + text; else msgs.push({ role, text });
+      }
+      while (msgs.length && msgs[0].role !== 'user') msgs.shift();
+      if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return out(400, { error: 'empty' });
+      const sys = SOUND_SYS + '\nЯзык интерфейса: ' + (b.lang === 'ru' ? 'ru' : 'en') + '. Текущие настройки звука: ' + JSON.stringify(b.current || {});
       let text;
       if (GKEY) {
         const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
         const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': GKEY },
-          body: JSON.stringify({ systemInstruction: { parts: [{ text: SOUND_SYS }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json' } })
+          body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents: msgs.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })), generationConfig: { responseMimeType: 'application/json' } })
         });
         const j = await r.json();
+        if (!r.ok) throw new Error('Gemini ' + r.status + ': ' + JSON.stringify(j).slice(0, 300));
         text = ((j.candidates || [])[0]?.content?.parts || []).map(p => p.text || '').join('');
       } else {
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5', max_tokens: 400, system: SOUND_SYS, messages: [{ role: 'user', content: user }] })
+          body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5', max_tokens: 700, system: sys, messages: msgs.map(m => ({ role: m.role, content: m.text })) })
         });
         const j = await r.json();
+        if (!r.ok) throw new Error('Claude ' + r.status + ': ' + JSON.stringify(j).slice(0, 300));
         text = (j.content || []).map(c => c.text || '').join('');
       }
-      const o = JSON.parse(text.replace(/```json|```/g, '').trim());
+      // модель может ответить не JSON-ом (например, на «привет»): тогда весь текст и есть ответ
+      let o; const clean = text.replace(/```json|```/g, '').trim();
+      try { o = JSON.parse(clean); } catch (e) { const m = clean.match(/\{[\s\S]*\}/); try { o = m ? JSON.parse(m[0]) : null; } catch (e2) { o = null; } }
+      if (!o || typeof o !== 'object') o = { say: clean };
       const keep = {}; for (const k of ['say', 'speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle', 'sub', 'dist', 'search']) if (o[k] !== undefined) keep[k] = o[k];
+      if (!keep.say) throw new Error('empty reply: ' + text.slice(0, 200));
       out(200, keep);
-    } catch (e) { out(500, { error: 'ИИ не смог обработать запрос.' }); }
+    } catch (e) { console.log('ai error:', e.message); out(500, { error: 'ИИ не смог обработать запрос. / AI could not process the request.' }); }
   });
 }
 
