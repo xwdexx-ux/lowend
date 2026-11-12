@@ -194,7 +194,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .ai-tag{border:1px solid var(--edge);border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted);white-space:normal}
 button.ai-tag{margin:0;background:var(--a);color:var(--onA);border-color:transparent;font-weight:600;cursor:pointer}
 .think{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:15px;min-width:0}
-.think{flex-wrap:wrap}.think .dots{flex:0 0 100%;display:flex;align-items:center;gap:6px;margin:10px 0 2px;height:10px}.think .dots i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:tkd 1.2s ease-in-out infinite}.think .dots i:nth-child(2){animation-delay:.2s}.think .dots i:nth-child(3){animation-delay:.4s}@keyframes tkd{0%,60%,100%{opacity:.3;transform:scale(.8)}30%{opacity:1;transform:scale(1.15)}}
+.think{gap:12px}.think .dots{position:relative;flex:none;width:16px;height:14px}.think .dots i{position:absolute;left:0;top:5.5px;width:3.4px;height:3.4px;border-radius:50%;background:var(--text);will-change:transform}.think .dots i:nth-child(1){animation:dA 1.7s ease-in-out infinite}.think .dots i:nth-child(2){animation:dB 1.3s ease-in-out infinite}.think .dots i:nth-child(3){animation:dC 1.9s ease-in-out infinite}@keyframes dA{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(2px,-3px) scale(.7)}50%{transform:translate(1px,2.5px) scale(1.15)}75%{transform:translate(-.5px,-1px) scale(.8)}}@keyframes dB{0%,100%{transform:translate(6px,0) scale(.6)}30%{transform:translate(7px,-4px) scale(1.15)}60%{transform:translate(5px,3px) scale(.85)}}@keyframes dC{0%,100%{transform:translate(12px,0) scale(1.1)}35%{transform:translate(11px,3px) scale(.65)}70%{transform:translate(13px,-3px) scale(1)}}.think b{transition:opacity .2s}
 .think svg{flex:none;width:18px;height:18px;animation:tkp 1.6s ease-in-out infinite}
 .think b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400;background:linear-gradient(90deg,var(--muted) 30%,var(--text) 50%,var(--muted) 70%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:tks 2s linear infinite}
 @keyframes tkp{0%,100%{opacity:.45}50%{opacity:1}}
@@ -1019,12 +1019,13 @@ function thinkSteps(text, hasVid) { // что ИИ сейчас делает: п
   const k = hasVid || /эдит|слайд|клип|видео|edit|video|slideshow|clip/.test(x) ? 'aiTkVid' : /найд|поищ|трек|песн|find|search|song|track/.test(x) ? 'aiTkFind' : /бас|реверб|звук|скорост|slowed|speed|bass|reverb|echo|sound|treble/.test(x) ? 'aiTkSound' : 'aiTkChat';
   return t(k).split('|');
 }
-function thinkEl(first, steps) { // строка хода работы: часы + переливающийся текст; фазы сменяются сами, set() ставит свой текст
-  const d = document.createElement('div'); d.className = 'msg a think'; d.setAttribute('role', 'status'); d.innerHTML = CLOCK + '<b></b><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>';
-  const b = d.querySelector('b'), cl = x => String(x).replace(/\s*(…|\.{2,})\s*$/, ''); let i = 0, timer = 0; b.textContent = cl(steps && steps.length ? steps[0] : first);
-  if (steps && steps.length > 1) timer = setInterval(() => { i = Math.min(i + 1, steps.length - 1); b.textContent = cl(steps[i]); if (i === steps.length - 1) clearInterval(timer); }, 2400);
-  d.set = x => { clearInterval(timer); b.textContent = cl(x); };
-  const rm = d.remove.bind(d); d.remove = () => { clearInterval(timer); rm(); };
+function thinkEl(first, steps) { // строка хода работы, как у Claude: три оранжевые точки слева и переливающийся текст; фазы сменяются сами, set() ставит свой текст
+  const d = document.createElement('div'); d.className = 'msg a think'; d.setAttribute('role', 'status'); d.innerHTML = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><b></b>';
+  const b = d.querySelector('b'); let i = 0, timer = 0, sw = 0; b.textContent = steps && steps.length ? steps[0] : first;
+  const put = x => { clearTimeout(sw); b.style.opacity = 0; sw = setTimeout(() => { b.textContent = x; b.style.opacity = 1; }, 180); }; // смена фразы: плавно гаснет и появляется
+  if (steps && steps.length > 1) timer = setInterval(() => { i = Math.min(i + 1, steps.length - 1); put(steps[i]); if (i === steps.length - 1) clearInterval(timer); }, 2400);
+  d.set = x => { clearInterval(timer); put(x); };
+  const rm = d.remove.bind(d); d.remove = () => { clearInterval(timer); clearTimeout(sw); rm(); };
   return d;
 }
 const vidLive = new Map(); // blob-адрес готового эдита -> {blob, ext, name}; живёт, пока открыта страница

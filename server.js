@@ -8,18 +8,46 @@ const normNick = x => String(x).toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 const ROLES_FILE = path.join(__dirname, 'roles.json');
 let roles = {}; // хэш токена -> 'owner' | 'admin'
 try { roles = JSON.parse(fs.readFileSync(ROLES_FILE, 'utf8')); } catch (e) {}
-const saveRoles = () => { try { fs.writeFileSync(ROLES_FILE, JSON.stringify(roles)); } catch (e) {} };
+const saveRoles = () => {
+  try { fs.writeFileSync(ROLES_FILE, JSON.stringify(roles)); } catch (e) {}
+  if (mongoOn()) kvCol().then(c => c.updateOne({ _id: 'roles' }, { $set: { v: roles } }, { upsert: true })).catch(e => console.log('roles db error:', e.message));
+};
+async function loadRoles() { // роли админов и владельца берём из Atlas, чтобы они не пропадали после перезапуска
+  if (!mongoOn()) return;
+  try { const d = await (await kvCol()).findOne({ _id: 'roles' }); if (d && d.v && typeof d.v === 'object') roles = { ...roles, ...d.v }; console.log('mongo: ok, roles ' + Object.keys(roles).length); }
+  catch (e) { console.log('mongo error:', e.message); }
+}
 
 // Ники: кто первым занял ник, тот им владеет. Хранится в Upstash Redis (бесплатно); без него в файле nicks.json (на Render он сбрасывается)
 const UP_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/$/, ''), UP_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const NICKS_FILE = path.join(__dirname, 'nicks.json');
 let nicksLocal = {}; // нормализованный ник -> хэш владельца
 try { nicksLocal = JSON.parse(fs.readFileSync(NICKS_FILE, 'utf8')); } catch (e) {}
+// MongoDB Atlas (бесплатный M0): если задан MONGODB_URI, ники, премиум, Pro и роли хранятся там и переживают перезапуски Render. Без него работает Upstash, а без обоих файлы
+const MONGO_URI = process.env.MONGODB_URI || '', mongoOn = () => !!MONGO_URI;
+let mcolP = null;
+function kvCol() {
+  if (!mcolP) mcolP = (async () => {
+    const { MongoClient } = require('mongodb');
+    const c = new MongoClient(MONGO_URI, { serverSelectionTimeoutMS: 8000 }); await c.connect();
+    return c.db(process.env.MONGODB_DB || 'lowend').collection('kv');
+  })().catch(e => { mcolP = null; throw e; });
+  return mcolP;
+}
 const redis = async cmd => {
   const r = await fetch(UP_URL, { method: 'POST', headers: { Authorization: 'Bearer ' + UP_TOKEN, 'content-type': 'application/json' }, body: JSON.stringify(cmd) });
   const j = await r.json(); if (j.error) throw new Error(j.error); return j.result;
 };
 async function claimNick(nn, h) { // true: ник твой, false: занят другим
+  if (mongoOn()) {
+    try {
+      const c = await kvCol();
+      try { await c.insertOne({ _id: 'nick:' + nn, v: h }); } catch (e) { if (e.code !== 11000) throw e; const d = await c.findOne({ _id: 'nick:' + nn }); if (!d || d.v !== h) return false; }
+      const old = await c.findOneAndUpdate({ _id: 'hnick:' + h }, { $set: { v: nn } }, { upsert: true, returnDocument: 'before' });
+      if (old && old.v && old.v !== nn) await c.deleteOne({ _id: 'nick:' + old.v, v: h }); // прежний ник освобождается
+      return true;
+    } catch (e) { console.log('nick db error:', e.message); return true; }
+  }
   if (UP_URL && UP_TOKEN) {
     try {
       if ((await redis(['SET', 'nick:' + nn, h, 'NX'])) !== 'OK' && (await redis(['GET', 'nick:' + nn])) !== h) return false;
@@ -35,6 +63,14 @@ async function claimNick(nn, h) { // true: ник твой, false: занят д
   return true;
 }
 async function releaseNick(h) { // выход из аккаунта: ник снова свободен
+  if (mongoOn()) {
+    try {
+      const c = await kvCol(), d = await c.findOne({ _id: 'hnick:' + h });
+      if (d && d.v) await c.deleteOne({ _id: 'nick:' + d.v, v: h });
+      await c.deleteOne({ _id: 'hnick:' + h });
+    } catch (e) { console.log('nick db error:', e.message); }
+    return;
+  }
   if (UP_URL && UP_TOKEN) {
     try {
       const nn = await redis(['GET', 'hnick:' + h]);
@@ -65,12 +101,14 @@ const premCache = new Map(); // pid -> до какого времени (мс), 
 const pid = h => h.slice(0, 48);
 const redisOn = () => !!(UP_URL && UP_TOKEN);
 async function kvGet(k) {
+  if (mongoOn()) { try { const d = await (await kvCol()).findOne({ _id: k }); return Number(d && d.v) || 0; } catch (e) { console.log('premium db error:', e.message); } }
   if (redisOn()) { try { return Number(await redis(['GET', k])) || 0; } catch (e) { console.log('premium db error:', e.message); } }
   return premLocal[k] || 0;
 }
 async function kvSet(k, v) {
   if (v > 0) premLocal[k] = v; else delete premLocal[k];
   try { fs.writeFileSync(PREM_FILE, JSON.stringify(premLocal)); } catch (e) {}
+  if (mongoOn()) { try { const c = await kvCol(); if (v > 0) await c.updateOne({ _id: k }, { $set: { v } }, { upsert: true }); else await c.deleteOne({ _id: k }); } catch (e) { console.log('premium db error:', e.message); } return; }
   if (redisOn()) { try { await redis(v > 0 ? ['SET', k, String(v)] : ['DEL', k]); } catch (e) { console.log('premium db error:', e.message); } }
 }
 async function getPremium(p) { const v = await kvGet('prem:' + p); premCache.set(p, v); return v; }
@@ -144,7 +182,8 @@ async function onUpdate(u) {
     const sp = m.successful_payment, id = sp.telegram_payment_charge_id;
     if (!/^(prem|pro):[0-9a-f]{48}$/.test(sp.invoice_payload || '') || paidSeen.has(id)) return;
     paidSeen.add(id);
-    if (redisOn()) { try { if ((await redis(['SET', 'pay:' + id, JSON.stringify({ p: sp.invoice_payload, tg: m.from.id, at: Date.now() }), 'NX'])) !== 'OK') return; } catch (e) {} }
+    if (mongoOn()) { try { await (await kvCol()).insertOne({ _id: 'pay:' + id, v: 1, p: sp.invoice_payload, tg: m.from.id, at: Date.now() }); } catch (e) { if (e.code === 11000) return; console.log('pay db error:', e.message); } }
+    else if (redisOn()) { try { if ((await redis(['SET', 'pay:' + id, JSON.stringify({ p: sp.invoice_payload, tg: m.from.id, at: Date.now() }), 'NX'])) !== 'OK') return; } catch (e) {} }
     const isP = sp.invoice_payload.startsWith('pro:'), p = sp.invoice_payload.split(':')[1];
     const until = isP ? await addPro(p, PRO_DAYS) : await addPremium(p, PREMIUM_DAYS);
     const tk = (isP ? 'tgpro:' : 'tgprem:') + m.from.id, prev = await kvGet(tk); await kvSet(tk, Math.max(prev, until)); // чтобы можно было восстановить на другом устройстве
@@ -295,7 +334,7 @@ const SOUND_SYS = 'Ты lowend AI, дружелюбный чат-ассисте�
   'Поля, которые не просили менять, не включай. Если просят найти или подобрать песню, добавь search (строка для поиска). ' +
   'Не ставь bass выше 20 и sub выше 60 без явной просьбы: на динамике телефона сверхнизкие частоты не слышны, лучше умеренный bass и немного dist.';
 const VIDEO_SYS = 'Если пользователь просит сделать видео, эдит или слайдшоу из его видео, добавь в JSON поле video: {\"type\":\"edit\", поля: ' + EDIT_FIELDS + '}. ' +
-  'Эдит (нарезка клипов из прикреплённых видео вразброс под биты, можно фильтры и надпись поверх) сайт собирает прямо в этом чате сразу после твоего ответа. Никуда не перекидывай, Студию и кнопки не упоминай: в say коротко скажи, что собираешь эдит и что настроил (музыка, длина, темп, надпись). ' +
+  'Эдит (нарезка клипов из прикреплённых видео вразброс под биты, можно фильтры и надпись поверх) сайт собирает прямо в этом чате сразу после твоего ответа. Никуда не перекидывай, Студию и кнопки не упоминай: в say коротко скажи в настоящем времени, что собираешь эдит и что настроил (музыка, длина, темп, надпись). Эдит ещё не готов в момент твоего ответа: никогда не пиши «сделал», «готово», «получилось», сайт сам сообщит, когда файл собран. Не выдумывай символы и детали, которых не нашёл на кадрах. ' +
   'По умолчанию музыка берётся из видео 1, а разрешение такое же, как у видео 1 (res: \"same:1\"); меняй это, только если пользователь просил другое. Если просят оставить символ или надпись из его видео, найди её на кадрах и положи в text. Не включай в video поля, которые не просили менять. Если прикреплённых видео нет, попроси прикрепить и не добавляй video.';
 const soundHits = new Map();
 // Задачи ИИ: ответ считается на сервере и хранится 10 минут. Если телефон ушёл в TikTok и связь оборвалась, сайт заберёт готовый ответ по id
@@ -594,7 +633,7 @@ wss.on('connection', ws => {
 setInterval(() => wss.clients.forEach(w => { if (!w.alive) return w.terminate(); w.alive = false; w.ping(); }), 30000);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
+loadRoles().then(() => server.listen(PORT, '0.0.0.0', () => {
   console.log('lowend on :' + PORT); startBot();
   if (BASE_URL && process.env.KEEP_ALIVE === '1') setInterval(() => fetch(BASE_URL + '/health').catch(() => {}), 10 * 60 * 1000); // KEEP_ALIVE=1: не даём серверу уснуть
-});
+}));

@@ -278,7 +278,7 @@
     return segs;
   }
   // --- эдит: собирается из чата lowend AI (window.studioEdit). Интерфейса эдита в Студии больше нет: Студия только для видео с текстом ---
-  Object.assign(EN, { 'Добавь хотя бы одно видео.': 'Add at least one video.', 'Разбираю музыку…': 'Analyzing the music…', 'Готовлю клипы…': 'Preparing the clips…', 'Открываю видео…': 'Opening the videos…', 'Не получилось открыть ': 'Could not open ', 'Студия занята: дождись конца текущей сборки.': 'The Studio is busy: wait for the current render to finish.', 'Записываю: ': 'Recording: ', ' с. Не закрывай страницу и не блокируй экран.': ' s. Do not close the page or lock the screen.', 'Не получилось достать звук из видео ': 'Could not get the sound from ', 'В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ': 'The music video has under 2 seconds of sound after that second. Its length: ', 'Этот браузер не умеет записывать видео.': 'This browser cannot record video.' });
+  Object.assign(EN, { 'Добавь хотя бы одно видео.': 'Add at least one video.', 'Разбираю музыку…': 'Analyzing the music…', 'Готовлю клипы…': 'Preparing the clips…', 'Открываю видео…': 'Opening the videos…', 'Не получилось открыть ': 'Could not open ', 'Студия занята: дождись конца текущей сборки.': 'The Studio is busy: wait for the current render to finish.', 'Записываю: ': 'Recording: ', ' с. Не закрывай страницу и не блокируй экран.': ' s. Do not close the page or lock the screen.', 'Не получилось достать звук из видео ': 'Could not get the sound from ', 'В этом видео нет звука: ': 'This video has no sound: ', 'В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ': 'The music video has under 2 seconds of sound after that second. Its length: ', 'Этот браузер не умеет записывать видео.': 'This browser cannot record video.' });
   const evenN = n => Math.max(2, Math.round(n / 2) * 2);
   const FILTERS = ['none', 'bw', 'warm', 'cool', 'moody', 'vivid'], TEMPOS = ['fast', 'mid', 'slow', 'mix'], POS = ['top', 'center', 'bottom'], QS = ['fast', 'high', 'max'];
   const ED_DEF = { music: 1, also: false, res: 'v:0', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
@@ -321,10 +321,77 @@
     });
     edMeta.set(k, p); p.catch(() => edMeta.delete(k)); return p;
   }
+  // Звук из MP4/MOV без чтения всего видео: находим звуковую дорожку AAC и собираем из неё поток ADTS, который понимает decodeAudioData.
+  // Читаются только нужные куски файла, поэтому и память, и время уходят в разы меньше, чем при декодировании целого видео.
+  // null: дорожка в другом формате (тогда звук берётся обычным путём); 'none': в видео нет звука.
+  async function mp4Aac(f) {
+    const rd = async (a, b) => new DataView(await f.slice(a, b).arrayBuffer());
+    const u32 = (v, o) => v.getUint32(o), tag = (v, o) => String.fromCharCode(v.getUint8(o), v.getUint8(o + 1), v.getUint8(o + 2), v.getUint8(o + 3));
+    let pos = 0, moov = null;
+    while (pos + 8 <= f.size) { // верхний уровень: ищем moov (он бывает и в начале, и в конце файла)
+      const h = await rd(pos, pos + 16); let size = u32(h, 0), hd = 8; const ty = tag(h, 4);
+      if (size === 1) { size = Number(h.getBigUint64(8)); hd = 16; } else if (size === 0) size = f.size - pos;
+      if (size < hd) return null;
+      if (ty === 'moov') { if (size > 64e6) return null; moov = await rd(pos + hd, pos + size); break; }
+      pos += size;
+    }
+    if (!moov) return null;
+    const kids = (v, a, b) => { const out = []; let p = a; while (p + 8 <= b) { let s = u32(v, p), hd = 8; if (s === 1) { s = Number(v.getBigUint64(p + 8)); hd = 16; } else if (s === 0) s = b - p; if (s < hd || p + s > b) break; out.push({ t: tag(v, p + 4), a: p + hd, b: p + s }); p += s; } return out; };
+    const find = (v, a, b, t) => kids(v, a, b).find(x => x.t === t);
+    let soun = false, track = null;
+    for (const tr of kids(moov, 0, moov.byteLength).filter(x => x.t === 'trak')) {
+      const mdia = find(moov, tr.a, tr.b, 'mdia'); if (!mdia) continue;
+      const hdlr = find(moov, mdia.a, mdia.b, 'hdlr'); if (!hdlr || tag(moov, hdlr.a + 8) !== 'soun') continue;
+      soun = true;
+      const minf = find(moov, mdia.a, mdia.b, 'minf'), stbl = minf && find(moov, minf.a, minf.b, 'stbl'); if (!stbl) continue;
+      track = { v: moov, stbl }; break;
+    }
+    if (!soun) return 'none';
+    if (!track) return null;
+    const v = track.v, S = k => find(v, track.stbl.a, track.stbl.b, k);
+    const stsd = S('stsd'), stsz = S('stsz'), stsc = S('stsc'), stco = S('stco') || S('co64');
+    if (!stsd || !stsz || !stsc || !stco) return null;
+    const ent = kids(v, stsd.a + 8, stsd.b)[0]; if (!ent || ent.t !== 'mp4a') return null;
+    const ver = v.getUint16(ent.a + 8), hd0 = ver === 1 ? 44 : ver === 2 ? 64 : 28; // версия описания звука: у .mov с iPhone обычно 1 (QuickTime), там esds лежит внутри wave
+    let esds = find(v, ent.a + hd0, ent.b, 'esds'); if (!esds) { const wv = find(v, ent.a + hd0, ent.b, 'wave'); esds = wv && find(v, wv.a, wv.b, 'esds'); }
+    if (!esds) return null;
+    let p = esds.a + 4, cfg = null; // дескрипторы: ищем 0x05 (AudioSpecificConfig)
+    const len = () => { let n = 0; for (let i = 0; i < 4; i++) { const b = v.getUint8(p++); n = (n << 7) | (b & 127); if (!(b & 128)) break; } return n; };
+    while (p < esds.b) { const tg = v.getUint8(p++); const n = len(); if (tg === 3) p += 3; else if (tg === 4) p += 13; else if (tg === 5) { cfg = [v.getUint8(p), v.getUint8(p + 1)]; break; } else p += n; }
+    if (!cfg) return null;
+    const aot = cfg[0] >> 3, fi = ((cfg[0] & 7) << 1) | (cfg[1] >> 7), ch = (cfg[1] >> 3) & 15;
+    if (aot < 1 || aot > 4 || fi > 12 || ch < 1 || ch > 7) return null; // AAC-LC и родственные; HE-AAC и экзотика идут обычным путём
+    const nS = u32(v, stsz.a + 8), fixed = u32(v, stsz.a + 4), sizes = new Array(nS);
+    for (let i = 0; i < nS; i++) sizes[i] = fixed || u32(v, stsz.a + 12 + i * 4);
+    const nC = u32(v, stco.a + 4), big = stco.t === 'co64', offs = new Array(nC);
+    for (let i = 0; i < nC; i++) offs[i] = big ? Number(v.getBigUint64(stco.a + 8 + i * 8)) : u32(v, stco.a + 8 + i * 4);
+    const nR = u32(v, stsc.a + 4), runs = []; for (let i = 0; i < nR; i++) runs.push([u32(v, stsc.a + 8 + i * 12), u32(v, stsc.a + 12 + i * 12)]);
+    const chunks = []; let si = 0; // [смещение, номер первого сэмпла, число сэмплов, байт]
+    for (let c = 0; c < nC; c++) {
+      let per = 0; for (const r of runs) if (r[0] <= c + 1) per = r[1];
+      let bytes = 0; for (let k = 0; k < per && si + k < nS; k++) bytes += sizes[si + k];
+      chunks.push([offs[c], si, Math.min(per, nS - si), bytes]); si += per;
+    }
+    const parts = new Array(nC);
+    for (let i = 0; i < nC; i += 24) await Promise.all(chunks.slice(i, i + 24).map(async (c, j) => { parts[i + j] = new Uint8Array(await f.slice(c[0], c[0] + c[3]).arrayBuffer()); }));
+    let total = 0; for (let i = 0; i < nS; i++) total += sizes[i] + 7;
+    const out = new Uint8Array(total); let o = 0;
+    chunks.forEach((c, ci) => { let q = 0; for (let k = 0; k < c[2]; k++) {
+      const n = sizes[c[1] + k], fl = n + 7;
+      out[o] = 0xFF; out[o + 1] = 0xF1; out[o + 2] = ((aot - 1) << 6) | (fi << 2) | (ch >> 2); out[o + 3] = ((ch & 3) << 6) | (fl >> 11); out[o + 4] = (fl >> 3) & 255; out[o + 5] = ((fl & 7) << 5) | 0x1F; out[o + 6] = 0xFC;
+      out.set(parts[ci].subarray(q, q + n), o + 7); q += n; o += fl;
+    } });
+    return out.buffer;
+  }
   function edAudio(f) { // звук видео целиком: декодируется один раз и запоминается
     const k = fkey(f); if (edAud.has(k)) return edAud.get(k);
     initAudio();
-    const p = f.arrayBuffer().then(ab => ctx.decodeAudioData(ab));
+    const p = (async () => {
+      let a = null; try { a = await mp4Aac(f); } catch (e) {} // сначала быстрый путь: берём из файла только звуковую дорожку
+      if (a === 'none') throw new Error('noaudio');
+      if (a) { try { return await ctx.decodeAudioData(a); } catch (e) {} }
+      return ctx.decodeAudioData(await f.arrayBuffer()); // запасной путь: декодируем файл целиком
+    })();
     edAud.set(k, p); p.catch(() => edAud.delete(k));
     while (edAud.size > 2) edAud.delete(edAud.keys().next().value);
     return p;
@@ -357,7 +424,7 @@
       }
       say(tr('Готовлю клипы…'));
       const ready = v => new Promise(res => { let n = 0; const chk = () => (v.readyState >= 2 || ++n > 100) ? res() : setTimeout(chk, 50); v.addEventListener('error', res, { once: true }); chk(); v.play().then(() => v.pause(), () => {}); });
-      const [buf] = await Promise.all([bufP.catch(() => { throw new Error(tr('Не получилось достать звук из видео ') + music.name); }), ...pool.map(p => ready(p.v))]);
+      const [buf] = await Promise.all([bufP.catch(e => { throw new Error(e && e.message === 'noaudio' ? tr('В этом видео нет звука: ') + music.name : tr('Не получилось достать звук из видео ') + music.name); }), ...pool.map(p => ready(p.v))]);
       const start = Math.max(0, E.start), len = Math.min(Math.max(3, E.len), 120, buf.duration - start);
       if (len < 2) throw new Error(tr('В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ') + Math.round(buf.duration) + tr(' с'));
       const gaps = { fast: [.3], mid: [.6], slow: [1.2], mix: [.3, .6, .3, 1.2, .45] }[E.tempo] || [.6];
