@@ -380,9 +380,16 @@
       mr.start(1000); src.start(0, start, len);
       const af = Math.min(d.afade || 0, len), now = ctx.currentTime; fadeG.gain.setValueAtTime(1, now);
       if (af > 0) { fadeG.gain.setValueAtTime(1, now + len - af); fadeG.gain.linearRampToValueAtTime(0, now + len); }
-      let cur = -1, lastSay = -1; const t0 = performance.now();
-      await new Promise(done => (function tick() {
-        const t = (performance.now() - t0) / 1000; let i = cur < 0 ? 0 : cur;
+      let cur = -1, lastSay = -1, lost = 0, hidAt = 0; const t0 = performance.now();
+      const onVis = async () => { // свернул сайт (TikTok, блокировка): запись и звук замирают, при возврате идут дальше с того же места
+        const cv = () => pool[segs[Math.max(cur, 0)].k].v;
+        if (document.hidden) { if (!hidAt) hidAt = performance.now(); try { if (mr.state === 'recording') mr.pause(); } catch (e) {} try { cv().pause(); } catch (e) {} try { await ctx.suspend(); } catch (e) {} }
+        else if (hidAt) { lost += performance.now() - hidAt; hidAt = 0; try { await ctx.resume(); } catch (e) {} try { if (mr.state === 'paused') mr.resume(); } catch (e) {} try { cv().play().catch(() => {}); } catch (e) {} }
+      };
+      document.addEventListener('visibilitychange', onVis);
+      try { await new Promise(done => (function tick() {
+        if (document.hidden) return requestAnimationFrame(tick);
+        const t = (performance.now() - t0 - lost) / 1000; let i = cur < 0 ? 0 : cur;
         while (i < segs.length - 1 && t >= segs[i].t1) i++;
         if (i !== cur) {
           if (cur >= 0) pool[segs[cur].k].v.pause();
@@ -394,7 +401,8 @@
         edFx(g, w, h, E, Math.max(0, 1 - dt / .12)); edTextDraw(g, w, h, E, t);
         const sec = Math.floor(t); if (sec !== lastSay) { lastSay = sec; say(tr('Записываю: ') + Math.min(sec, Math.round(len)) + ' / ' + Math.round(len) + tr(' с. Не закрывай страницу и не блокируй экран.')); }
         t >= len ? done() : requestAnimationFrame(tick);
-      })());
+      })()); } finally { document.removeEventListener('visibilitychange', onVis); }
+      if (mr.state === 'paused') try { mr.resume(); } catch (e) {}
       mr.stop(); await stopped; try { src.stop(); } catch (e) {} fadeG.disconnect();
       return { blob: new Blob(chunks, { type: type.split(';')[0] }), type };
     } finally { pool.forEach(p => { p.v.pause(); p.v.remove(); }); }

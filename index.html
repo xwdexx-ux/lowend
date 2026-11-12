@@ -194,6 +194,7 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .ai-tag{border:1px solid var(--edge);border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted);white-space:normal}
 button.ai-tag{margin:0;background:var(--a);color:var(--onA);border-color:transparent;font-weight:600;cursor:pointer}
 .think{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:15px;min-width:0}
+.think .dots{flex:none;display:inline-flex;gap:3px;margin-left:-4px}.think .dots i{width:4px;height:4px;border-radius:50%;background:var(--muted);animation:tkd 1.2s ease-in-out infinite}.think .dots i:nth-child(2){animation-delay:.2s}.think .dots i:nth-child(3){animation-delay:.4s}@keyframes tkd{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 .think svg{flex:none;width:18px;height:18px;animation:tkp 1.6s ease-in-out infinite}
 .think b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400;background:linear-gradient(90deg,var(--muted) 30%,var(--text) 50%,var(--muted) 70%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:tks 2s linear infinite}
 @keyframes tkp{0%,100%{opacity:.45}50%{opacity:1}}
@@ -1019,10 +1020,10 @@ function thinkSteps(text, hasVid) { // что ИИ сейчас делает: п
   return t(k).split('|');
 }
 function thinkEl(first, steps) { // строка хода работы: часы + переливающийся текст; фазы сменяются сами, set() ставит свой текст
-  const d = document.createElement('div'); d.className = 'msg a think'; d.setAttribute('role', 'status'); d.innerHTML = CLOCK + '<b></b>';
-  const b = d.querySelector('b'); let i = 0, timer = 0; b.textContent = steps && steps.length ? steps[0] : first;
-  if (steps && steps.length > 1) timer = setInterval(() => { i = Math.min(i + 1, steps.length - 1); b.textContent = steps[i]; if (i === steps.length - 1) clearInterval(timer); }, 2400);
-  d.set = x => { clearInterval(timer); b.textContent = x; };
+  const d = document.createElement('div'); d.className = 'msg a think'; d.setAttribute('role', 'status'); d.innerHTML = CLOCK + '<b></b><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+  const b = d.querySelector('b'), cl = x => String(x).replace(/\s*(…|\.{2,})\s*$/, ''); let i = 0, timer = 0; b.textContent = cl(steps && steps.length ? steps[0] : first);
+  if (steps && steps.length > 1) timer = setInterval(() => { i = Math.min(i + 1, steps.length - 1); b.textContent = cl(steps[i]); if (i === steps.length - 1) clearInterval(timer); }, 2400);
+  d.set = x => { clearInterval(timer); b.textContent = cl(x); };
   const rm = d.remove.bind(d); d.remove = () => { clearInterval(timer); rm(); };
   return d;
 }
@@ -1052,7 +1053,6 @@ function msgEl(m, animate) {
   if (m.tags && m.tags.length) {
     const w = document.createElement('div'); w.className = 'ai-tags';
     m.tags.forEach(x => { const s = document.createElement('span'); s.className = 'ai-tag'; s.textContent = x; w.appendChild(s); });
-    const o = document.createElement('button'); o.className = 'ai-tag'; o.textContent = t('aiOpen'); o.onclick = () => showAI(false); w.appendChild(o);
     d.appendChild(w);
   }
   return d;
@@ -1069,6 +1069,30 @@ function renderChat() {
   toBottom();
 }
 const updSend = () => { $('aiSend').disabled = aiBusy || attBusy > 0 || (!$('aiIn').value.trim() && !atts.length); };
+const jobId = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), x => x.toString(16).padStart(2, '0')).join('');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function pollJob(jid) { // сайт был свёрнут и связь оборвалась: сервер всё равно досчитал, забираем готовый ответ
+  for (let i = 0; i < 80; i++) {
+    await sleep(i ? 1500 : 400);
+    try {
+      const q = await fetch('/api/ai/job?id=' + jid, { headers: { 'x-token': tok } });
+      if (q.status === 202) continue; if (q.status === 404) break;
+      return { ok: q.ok, j: await q.json().catch(() => ({})) };
+    } catch (e) { /* нет сети: пробуем ещё */ }
+  }
+  throw new Error(t('aiErr'));
+}
+async function aiCall(body, jid) {
+  let r; try { r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', 'x-token': tok, 'x-job': jid }, body }); } catch (e) { return pollJob(jid); }
+  try { return { ok: r.ok, j: await r.json() }; } catch (e) { return pollJob(jid); }
+}
+const baseTitle = document.title;
+function ping(msg) { // готово, а ты не на сайте: уведомление (где браузер это умеет) и метка в заголовке вкладки
+  if (!document.hidden) return;
+  document.title = '● ' + baseTitle;
+  try { if ('Notification' in window && Notification.permission === 'granted') new Notification('lowend AI', { body: msg }); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) document.title = baseTitle; });
 async function aiSend(text) {
   const fromBox = text === undefined;
   if (fromBox && attBusy > 0) return;
@@ -1084,6 +1108,7 @@ async function aiSend(text) {
   }
   for (const a of sent) if (a.k === 'video' && a.file && !chatVideos.some(v => v.file.name === a.file.name && v.file.size === a.file.size)) { chatVideos.push({ file: a.file, n: a.n, w: a.meta.w, h: a.meta.h, dur: a.meta.dur }); if (chatVideos.length > 12) chatVideos.shift(); }
   if (sent.some(a => a.k === 'video')) warmVideos();
+  try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
   aiBusy = true; $('aiPop').hidden = true; $('aiPlus').classList.remove('on');
   if (fromBox) { $('aiIn').value = ''; aiGrow(); atts = []; renderAtts(); }
   updSend();
@@ -1092,19 +1117,20 @@ async function aiSend(text) {
   const typing = thinkEl('', thinkSteps(text, sent.some(a => a.k === 'video'))); $('aiCol').appendChild(typing); toBottom();
   try {
     const hist = th.msgs.slice(-12).map((m, i, arr) => ({ role: m.role, text: (m.text || (m.atts ? t('aiLook') : '')) + (m.atts && i < arr.length - 1 ? ' [attached: ' + m.atts.map(a => a.n).join(', ') + ']' : '') }));
-    const r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', 'x-token': tok }, body: JSON.stringify({ messages: hist, current: S, lang, attach, videos: chatVideos.map(v => ({ n: v.n, w: v.w, h: v.h, dur: v.dur })) }) });
-    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || t('aiErr'));
+    const jid = jobId();
+    const { ok, j } = await aiCall(JSON.stringify({ messages: hist, current: S, lang, attach, videos: chatVideos.map(v => ({ n: v.n, w: v.w, h: v.h, dur: v.dur })) }), jid);
+    if (!ok) throw new Error(j.error || t('aiErr'));
     const n = { ...S }, tags = [];
     for (const k in AIR) if (j[k] !== undefined && isFinite(+j[k])) {
       const v = Math.round(Math.min(AIR[k][1], Math.max(AIR[k][0], +j[k])) * 100) / 100; n[k] = v;
       tags.push(t(AIK[k]) + ': ' + (k === 'speed' ? v.toFixed(2) + 'x' : k === 'bass' || k === 'treble' ? '+' + v + ' dB' : v + '%'));
     }
     if (tags.length) setSettings(...IDS.map(k => n[k]));
-    const vspec = j.video && typeof j.video === 'object' ? j.video : null; if (vspec) tags.push('🎬 ' + (vspec.type === 'text' ? t('aiVidText') : t('aiVidEdit')));
+    const vspec = j.video && typeof j.video === 'object' ? j.video : null;
     if (j.search) { $('q').value = String(j.search).slice(0, 100); doSearch(); tags.push('🔎 ' + String(j.search).slice(0, 40)); }
     const m = { role: 'assistant', text: String(j.say).slice(0, 1500), tags }; th.msgs.push(m); saveThread(th);
-    typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl(m, true));
-    if (vspec) { await new Promise(r => setTimeout(r, 600)); await runChatVideo(vspec, th); }
+    typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl(m, true)); ping(m.text.slice(0, 120));
+    if (vspec) await runChatVideo(vspec, th);
   } catch (e) { typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl({ role: 'assistant', text: e.message || t('aiErr'), err: true }, false)); }
   aiBusy = false; updSend(); toBottom();
 }
@@ -1448,10 +1474,11 @@ async function runChatVideo(spec, th) {
   show(box);
   try {
     if (!(await loadStudio())) return box.remove();
+    if (document.hidden) await new Promise(r => { const f = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', f); r(); } }; document.addEventListener('visibilitychange', f); }); // запись идёт только на экране: стартует, как только вернёшься
     const r = await window.studioEdit(spec, files, x => { box.set(x); if (cur === th) toBottom(); });
     const url = URL.createObjectURL(r.blob); vidLive.set(url, r);
     box.remove();
-    const m = { role: 'assistant', text: t('aiVidDone'), vid: url }; th.msgs.push(m); saveThread(th); show(msgEl(m, false));
+    const m = { role: 'assistant', text: t('aiVidDone'), vid: url }; th.msgs.push(m); saveThread(th); show(msgEl(m, false)); ping(m.text);
   } catch (e) { fail(e.message || t('aiVidFail')); }
 }
 $('studioBtn').onclick = openStudioFlow; $('premOpen').onclick = openStudioFlow;

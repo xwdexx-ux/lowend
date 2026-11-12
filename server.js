@@ -298,6 +298,9 @@ const VIDEO_SYS = 'Если пользователь просит сделать
   'Эдит (нарезка клипов из прикреплённых видео вразброс под биты, можно фильтры и надпись поверх) сайт собирает прямо в этом чате сразу после твоего ответа. Никуда не перекидывай, Студию и кнопки не упоминай: в say коротко скажи, что собираешь эдит и что настроил (музыка, длина, темп, надпись). ' +
   'По умолчанию музыка берётся из видео 1, а разрешение такое же, как у видео 1 (res: \"same:1\"); меняй это, только если пользователь просил другое. Если просят оставить символ или надпись из его видео, найди её на кадрах и положи в text. Не включай в video поля, которые не просили менять. Если прикреплённых видео нет, попроси прикрепить и не добавляй video.';
 const soundHits = new Map();
+// Задачи ИИ: ответ считается на сервере и хранится 10 минут. Если телефон ушёл в TikTok и связь оборвалась, сайт заберёт готовый ответ по id
+const aiJobs = new Map(); // id -> { th, st: 'run'|'done', code, body, at }
+setInterval(() => { const now = Date.now(); for (const [k, v] of aiJobs) if (now - v.at > 600000) aiJobs.delete(k); }, 60000).unref();
 
 // Чтение тела запроса с лимитом: при превышении отвечаем 413, а не оставляем запрос висеть
 function readBody(req, res, max, cb) {
@@ -448,7 +451,21 @@ const APP_FILES = { '/inter-light.woff': 'font/woff', '/manifest.webmanifest': '
 const server = http.createServer((req, res) => {
   if (req.url === '/health') return res.end('ok');
   const pth = req.url.split('?')[0];
-  if (pth === '/api/ai' && req.method === 'POST') return soundAI(req, res);
+  if (pth === '/api/ai' && req.method === 'POST') {
+    const jid = String(req.headers['x-job'] || '');
+    if (/^[a-f0-9]{16,32}$/.test(jid) && aiJobs.size < 2000) {
+      const job = { th: hash(req.headers['x-token'] || ''), st: 'run', at: Date.now() }; aiJobs.set(jid, job);
+      const end = res.end.bind(res);
+      res.end = b => { job.st = 'done'; job.code = res.statusCode || 200; job.body = b; job.at = Date.now(); try { return end(b); } catch (e) {} };
+    }
+    return soundAI(req, res);
+  }
+  if (pth === '/api/ai/job') { // забрать ответ ИИ, который досчитался, пока сайт был свёрнут
+    const j = aiJobs.get(new URL(req.url, 'http://x').searchParams.get('id') || '');
+    if (!j || j.th !== hash(req.headers['x-token'] || '')) return json(res, 404, { error: 'gone' });
+    if (j.st !== 'done') return json(res, 202, { st: 'run' });
+    res.writeHead(j.code, { 'Content-Type': 'application/json' }); return res.end(j.body);
+  }
   if (pth === '/api/search') return musicSearch(req, res);
   if (pth === '/api/preview') return musicPreview(req, res);
   if (pth === '/tg' && req.method === 'POST') { // вебхук Telegram
