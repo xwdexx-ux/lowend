@@ -201,7 +201,7 @@ const SYS = 'Ты помощник видеостудии сайта lowend. В�
 const aiHits = new Map();
 // Gemini: gemini-2.5-flash закрыт Google 16.10.2026 (отсюда 404), поэтому пробуем список моделей; рабочая запоминается
 const goodBy = { free: '', pro: '' };
-async function geminiText(key, systemText, contents, pro) {
+async function geminiText(key, systemText, contents, pro, long) {
   const flash = [goodBy.free, process.env.GEMINI_MODEL, 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
   const proOnly = [goodBy.pro, process.env.GEMINI_PRO_MODEL, 'gemini-3.1-pro-preview'].filter(Boolean);
   const models = [...new Set((pro ? [...proOnly, ...flash] : flash).filter(Boolean))];
@@ -210,7 +210,7 @@ async function geminiText(key, systemText, contents, pro) {
     const isPro = pro && proOnly.includes(model) && !flash.includes(model);
     try {
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
-        method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, signal: AbortSignal.timeout(isPro ? 35000 : 25000),
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, signal: AbortSignal.timeout(long ? (isPro ? 70000 : 50000) : (isPro ? 35000 : 25000)),
         body: JSON.stringify({ systemInstruction: { parts: [{ text: systemText }] }, contents, generationConfig: { responseMimeType: 'application/json' } })
       });
       const j = await r.json().catch(() => ({}));
@@ -256,16 +256,48 @@ const SOUND_SYS = 'Ты lowend AI, дружелюбный чат-ассисте�
   'Тебя, lowend AI, и сайт lowend создал nexide (by nexide). Если спрашивают, кто тебя создал или чей ты, отвечай, что тебя создал nexide. Не говори, что тебя создал Google или другая компания. Если прямо спрашивают, на какой модели ты работаешь, скажи, что не знаешь подробностей, не выдумывай. ' +
   'Отвечай на ЛЮБЫЕ сообщения естественно и по делу, как ассистент в чате: приветствия, вопросы про музыку, звук и сайт, обычный разговор. Пиши коротко, на языке пользователя, обычным текстом (без markdown-заголовков), не выдумывай факты. ' +
   'Верни ТОЛЬКО JSON без markdown: {"say": "твой ответ"}. ' +
+  'Пользователь может прикреплять фото, видео (оно приходит как несколько кадров по порядку, без звука), PDF и текстовые файлы. Внимательно изучи вложения и сделай то, о чём просит пользователь: опиши, ответь на вопрос, прочитай текст, объясни, подбери звук под настроение картинки и так далее. Если вложение передано, не говори, что не видишь его. Если пользователь говорит про вложение, а его нет, скажи, что ничего не получил. ' +
   'Только если пользователь просит изменить звук, добавь в тот же JSON нужные поля: speed (0.3-2, 1 = оригинал, slowed ~0.8-0.9, nightcore ~1.25-1.35), bass (0-40 дБ), reverb (0-100), pan (0-100, 8D), vol (0-400, обычно 100), treble (0-20), echo (0-100), muffle (0-100, «из-под воды»), sub (0-100), dist (0-100). ' +
   'Поля, которые не просили менять, не включай. Если просят найти или подобрать песню, добавь search (строка для поиска). ' +
   'Не ставь bass выше 20 и sub выше 60 без явной просьбы: на динамике телефона сверхнизкие частоты не слышны, лучше умеренный bass и немного dist.';
 const soundHits = new Map();
+
+// Чтение тела запроса с лимитом: при превышении отвечаем 413, а не оставляем запрос висеть
+function readBody(req, res, max, cb) {
+  const fail = () => { if (!res.headersSent) { res.writeHead(413, { 'Content-Type': 'application/json', Connection: 'close' }); res.end(JSON.stringify({ error: 'Вложения слишком большие. / Attachments are too large.' })); } };
+  if (Number(req.headers['content-length'] || 0) > max) return fail();
+  let size = 0, dead = false; const parts = [];
+  req.on('data', d => { if (dead) return; size += d.length; if (size > max) { dead = true; parts.length = 0; return fail(); } parts.push(d); });
+  req.on('end', () => { if (!dead) cb(Buffer.concat(parts).toString('utf8')); });
+  req.on('error', () => {});
+}
+const IMG_OK = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']), B64 = /^[A-Za-z0-9+/]+={0,2}$/;
+function cleanAttach(a) { // фото, PDF и текстовые файлы от клиента: проверяем типы, размеры и base64
+  const out = { images: [], pdfs: [], files: [], note: '' };
+  if (!a || typeof a !== 'object') return out;
+  let total = 0;
+  for (const x of (Array.isArray(a.images) ? a.images : []).slice(0, 12)) {
+    if (!x || !IMG_OK.has(x.mime) || typeof x.data !== 'string' || x.data.length > 2.5e6 || !B64.test(x.data)) continue;
+    total += x.data.length; out.images.push({ mime: x.mime, data: x.data });
+  }
+  for (const x of (Array.isArray(a.pdfs) ? a.pdfs : []).slice(0, 2)) {
+    if (!x || typeof x.data !== 'string' || x.data.length > 6.9e6 || !B64.test(x.data)) continue;
+    total += x.data.length; out.pdfs.push({ name: String(x.name || 'file.pdf').slice(0, 80), data: x.data });
+  }
+  for (const x of (Array.isArray(a.files) ? a.files : []).slice(0, 4)) {
+    if (!x || typeof x.text !== 'string') continue;
+    out.files.push({ name: String(x.name || 'file').slice(0, 80), text: x.text.slice(0, 15000) });
+  }
+  out.note = String(a.note || '').replace(/[\r\n]+/g, ' ').slice(0, 400);
+  if (total > 9e6) return { images: [], pdfs: [], files: [], note: '', tooBig: true };
+  return out;
+}
+const hasAttach = a => !!(a && (a.images.length || a.pdfs.length || a.files.length));
 function soundAI(req, res) {
   const out = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
   const GKEY = process.env.GEMINI_API_KEY, AKEY = process.env.ANTHROPIC_API_KEY;
   if (!GKEY && !AKEY) return out(501, { error: 'ИИ не подключён: добавь на сервере GEMINI_API_KEY (бесплатно).' });
-  let body = ''; req.on('data', d => { body += d; if (body.length > 20000) req.destroy(); });
-  req.on('end', async () => {
+  readBody(req, res, 10e6, async body => {
     try {
       const th = hash(req.headers['x-token'] || ''), tier = await aiTier(th), now = Date.now(), smart = tier !== 'free';
       if (tier !== 'staff') { // у владельца и админов лимита нет
@@ -279,20 +311,28 @@ function soundAI(req, res) {
       // история чата: только user/assistant, роли чередуются, начинается с user
       const msgs = [];
       for (const m of (Array.isArray(b.messages) ? b.messages : []).slice(-12)) {
-        const role = m.role === 'assistant' ? 'assistant' : 'user', text = String(m.text || '').slice(0, 600).trim();
+        const role = m.role === 'assistant' ? 'assistant' : 'user', text = String(m.text || '').slice(0, 1500).trim();
         if (!text) continue;
         if (msgs.length && msgs[msgs.length - 1].role === role) msgs[msgs.length - 1].text += '\n' + text; else msgs.push({ role, text });
       }
       while (msgs.length && msgs[0].role !== 'user') msgs.shift();
       if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return out(400, { error: 'empty' });
+      const att = cleanAttach(b.attach);
+      if (att.tooBig) return out(413, { error: 'Вложения слишком большие. / Attachments are too large.' });
+      const last = msgs[msgs.length - 1];
+      if (att.note) last.text += '\n[' + att.note + ']';
+      for (const f of att.files) last.text += '\n\n[Файл: ' + f.name + ']\n' + f.text;
+      const withFiles = hasAttach(att);
       const sys = SOUND_SYS + '\nЯзык интерфейса: ' + (b.lang === 'ru' ? 'ru' : 'en') + '. Текущие настройки звука: ' + JSON.stringify(b.current || {});
       let text;
       if (GKEY) {
-        text = await geminiText(GKEY, sys, msgs.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })), smart);
+        const contents = msgs.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] }));
+        if (withFiles) contents[contents.length - 1].parts.push(...att.images.map(x => ({ inlineData: { mimeType: x.mime, data: x.data } })), ...att.pdfs.map(x => ({ inlineData: { mimeType: 'application/pdf', data: x.data } })));
+        text = await geminiText(GKEY, sys, contents, smart, withFiles);
       } else {
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({ model: smart ? (process.env.ANTHROPIC_PRO_MODEL || 'claude-sonnet-5-5') : (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5'), max_tokens: 700, system: sys, messages: msgs.map(m => ({ role: m.role, content: m.text })) })
+          body: JSON.stringify({ model: smart ? (process.env.ANTHROPIC_PRO_MODEL || 'claude-sonnet-5-5') : (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5'), max_tokens: 900, system: sys, messages: msgs.map((m, i) => ({ role: m.role, content: i === msgs.length - 1 && withFiles ? [...att.images.map(x => ({ type: 'image', source: { type: 'base64', media_type: x.mime, data: x.data } })), ...att.pdfs.map(x => ({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: x.data } })), { type: 'text', text: m.text }] : m.text })) })
         });
         const j = await r.json();
         if (!r.ok) throw new Error('Claude ' + r.status + ': ' + JSON.stringify(j).slice(0, 300));

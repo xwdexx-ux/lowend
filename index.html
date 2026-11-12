@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<style>html,body{background:#000}html[data-theme=light],html[data-theme=light] body{background:#fff}</style>
 <title>lowend</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#000000" id="metaTheme">
@@ -172,10 +173,10 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .crow .cx svg{width:18px;height:18px}
 #dNone{color:var(--muted);padding:6px 12px;font-size:14px}
 #dNone[hidden]{display:none}
-#aiApp{position:fixed;inset:0;z-index:70;background:var(--ink);color:var(--text);display:flex;flex-direction:column;height:100vh;height:100dvh}
-.ai-top{display:flex;align-items:center;justify-content:space-between;padding:calc(8px + env(safe-area-inset-top)) 10px 8px}
+#aiApp{position:fixed;left:0;right:0;top:0;z-index:70;background:var(--ink);color:var(--text);display:flex;flex-direction:column;height:100vh;height:100dvh;overscroll-behavior:none}
+.ai-top{touch-action:none;flex:none;display:flex;align-items:center;justify-content:space-between;padding:calc(8px + env(safe-area-inset-top)) 10px 8px}
 .ai-title{font:600 16px "Instrument Sans",sans-serif}
-.ai-feed{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px 16px}
+.ai-feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:8px 16px 16px}
 .ai-col{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
 .ai-empty{text-align:center;margin-top:14vh}
 .ai-empty h1{font:800 38px "Bricolage Grotesque",sans-serif;letter-spacing:-.03em}
@@ -193,13 +194,39 @@ button.ai-tag{margin:0;background:var(--a);color:var(--onA);border-color:transpa
 .dots span{display:inline-block;width:7px;height:7px;margin-right:5px;border-radius:50%;background:var(--muted);animation:aid 1.2s infinite}
 .dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
 @keyframes aid{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
-.ai-comp{padding:6px 12px calc(10px + env(safe-area-inset-bottom))}
-.ai-box{max-width:720px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--glass);border:1px solid var(--edge);border-radius:26px;padding:6px 6px 6px 16px}
-.ai-box textarea{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:400 16px/1.45 "Instrument Sans",system-ui,sans-serif;resize:none;max-height:140px;padding:8px 0}
+.ai-comp{flex:none;padding:6px 12px calc(10px + env(safe-area-inset-bottom))}
+#aiApp.kb .ai-comp{padding-bottom:8px}
+.ai-box{max-width:720px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--glass);border:1px solid var(--edge);border-radius:26px;padding:6px}
+.ai-box textarea{flex:1;align-self:center;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:400 16px/1.45 "Instrument Sans",system-ui,sans-serif;resize:none;max-height:140px;padding:8px 0}
 .ai-box textarea::placeholder{color:var(--muted)}
 .ai-send{flex:none;width:38px;height:38px;margin:0;padding:0;border:0;border-radius:50%;background:var(--a);color:var(--onA);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .ai-send:disabled{opacity:.3;cursor:not-allowed}
 .ai-note{text-align:center;color:var(--muted);font-size:12px;margin-top:8px}
+
+html.ai-lock,html.ai-lock body{overflow:hidden;overscroll-behavior:none}
+.wrap{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.ai-plus{flex:none;width:38px;height:38px;margin:0;padding:0;border:1px solid var(--edge);border-radius:50%;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s}
+.ai-plus:hover{background:var(--track)}
+.ai-plus.on{transform:rotate(45deg)}
+.ai-pop{max-width:720px;margin:0 auto 8px;background:var(--glass);border:1px solid var(--edge);border-radius:18px;padding:6px;display:flex;flex-direction:column}
+.ai-pop[hidden]{display:none}
+.ai-pop button{display:flex;align-items:center;gap:12px;width:100%;margin:0;padding:12px;border:0;border-radius:12px;background:transparent;color:var(--text);font:500 15px "Instrument Sans",sans-serif;text-align:left;cursor:pointer}
+.ai-pop button:hover,.ai-pop button:active{background:var(--track)}
+.ai-pop svg{width:20px;height:20px;flex:none}
+.ai-atts{max-width:720px;margin:0 auto 8px;display:flex;gap:8px;overflow-x:auto;padding:2px}
+.ai-atts:empty{display:none}
+.att{position:relative;flex:none;width:64px;height:64px;border-radius:14px;border:1px solid var(--edge);background:var(--glass);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.att img{width:100%;height:100%;object-fit:cover;display:block}
+.att.file{width:auto;min-width:64px;max-width:150px;padding:0 12px;flex-direction:column;gap:2px;color:var(--muted);font-size:11px}
+.att.file b{color:var(--text);font:700 13px "Instrument Sans",sans-serif}
+.att.file .n{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att.load{opacity:.5;animation:aid 1.2s infinite}
+.att .x{position:absolute;top:3px;right:3px;width:20px;height:20px;margin:0;padding:0;border:0;border-radius:50%;background:#000c;color:#fff;font-size:13px;line-height:20px;cursor:pointer}
+.att .vb{position:absolute;left:4px;bottom:4px;font-size:10px;line-height:1;background:#000c;color:#fff;border-radius:6px;padding:3px 5px}
+.ai-thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;justify-content:flex-end}
+.ai-thumbs .att{width:72px;height:72px}
+.ai-thumbs .att.file{width:auto;min-width:72px}
+#aiApp.drag{outline:2px dashed var(--a);outline-offset:-8px}
 </style>
 </head>
 <body>
@@ -224,8 +251,17 @@ button.ai-tag{margin:0;background:var(--a);color:var(--onA);border-color:transpa
   </div>
   <div class="ai-feed" id="aiFeed"><div class="ai-col" id="aiCol"></div></div>
   <div class="ai-comp">
-    <div class="ai-box"><textarea id="aiIn" rows="1" maxlength="500" data-ph="aiPh" placeholder="Message lowend AI" autocomplete="off"></textarea><button class="ai-send" id="aiSend" disabled aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+    <div class="ai-pop" id="aiPop" hidden>
+      <button type="button" id="aiBtnPhoto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span data-i="aiAttPhoto"></span></button>
+      <button type="button" id="aiBtnCam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span data-i="aiAttCam"></span></button>
+      <button type="button" id="aiBtnDoc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg><span data-i="aiAttFile"></span></button>
+    </div>
+    <div class="ai-atts" id="aiAtts"></div>
+    <div class="ai-box"><button type="button" class="ai-plus" id="aiPlus" data-aria="aiAttAdd" aria-label="Attach"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><textarea id="aiIn" rows="1" maxlength="2000" data-ph="aiPh" placeholder="Message lowend AI" autocomplete="off"></textarea><button class="ai-send" id="aiSend" disabled aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
     <div class="ai-note" data-i="aiNote"></div>
+    <input type="file" id="aiFPhoto" accept="image/*,video/*" multiple hidden>
+    <input type="file" id="aiFCam" accept="image/*,video/*" capture hidden>
+    <input type="file" id="aiFDoc" accept=".pdf,.txt,.md,.csv,.json,.xml,.yml,.yaml,.log,.srt,.lrc,.js,.ts,.py,.html,.css,application/pdf,text/*,image/*,video/*" multiple hidden>
   </div>
 </div>
 <div class="wrap">
@@ -393,7 +429,7 @@ const LANG = {
 ru: {
   pick:'Выбери трек', pickSub:'Загрузи песню ниже', len:'Длина: ', nosound:'Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.',
   searchH:'Поиск треков', searchPh:'Название или исполнитель', find:'Найти', searchHint:'Находит 30-секундные превью. Полный трек загрузи сам ниже.',
-  aiH:'lowend AI', aiPh:'Напиши lowend AI', aiHello:'lowend AI', aiSub:'Опиши звук словами или просто пообщайся', aiS1:'Сделай грустный slowed с реверберацией', aiS2:'Добавь мощный бас, но чтобы слышно было на телефоне', aiS3:'Привет! Что ты умеешь?', aiErr:'ИИ недоступен.', aiNew:'Новый чат', aiPlayer:'Плеер', aiOpen:'К плееру', aiNote:'lowend AI может ошибаться.', aiMenu:'Меню', aiChats:'Чаты', aiNoChats:'Пока нет чатов', aiDelQ:'Удалить этот чат?', aiDel:'Удалить',
+  aiH:'lowend AI', aiPh:'Напиши lowend AI', aiHello:'lowend AI', aiSub:'Опиши звук словами или просто пообщайся', aiS1:'Сделай грустный slowed с реверберацией', aiS2:'Добавь мощный бас, но чтобы слышно было на телефоне', aiS3:'Привет! Что ты умеешь?', aiErr:'ИИ недоступен.', aiNew:'Новый чат', aiPlayer:'Плеер', aiOpen:'К плееру', aiNote:'lowend AI может ошибаться.', aiMenu:'Меню', aiChats:'Чаты', aiNoChats:'Пока нет чатов', aiDelQ:'Удалить этот чат?', aiDel:'Удалить', aiAttPhoto:'Фото и видео', aiAttCam:'Камера', aiAttFile:'Файл (PDF, текст)', aiAttAdd:'Прикрепить', aiLook:'Посмотри вложение', aiAttMax:'Максимум 6 вложений.', aiAttBig:'Файл слишком большой.', aiAttFail:'Не получилось открыть файл.',
   h1:'1. Трек', drop:'Нажми и выбери песню (mp3, m4a, wav)', h2:'2. Звук', chipLoud:'Громче', chipEcho:'Эхо', chipWater:'Под водой', chipReset:'Сбросить',
   lSub:'Саб-бас', lDist:'Искажение', chipSub:'Саб-бас', chipDist:'Искажение', chipBBS:'Бас + ускоренный', chipSR:'Замедленный + реверб', chipNC:'Найткор',
   lSpeed:'Скорость', lBass:'Бас', lReverb:'Реверб', lPan:'8D панорама', lVol:'Громкость', lTreble:'Высокие', lEcho:'Эхо', lMuffle:'Под водой',
@@ -431,7 +467,7 @@ ru: {
 en: {
   pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
   searchH:'Track search', searchPh:'Title or artist', find:'Search', searchHint:'Finds 30-second previews. Upload the full track yourself below.',
-  aiH:'lowend AI', aiPh:'Message lowend AI', aiHello:'lowend AI', aiSub:'Describe the sound or just chat', aiS1:'Make a sad slowed + reverb version', aiS2:'Add strong bass that is audible on a phone', aiS3:'Hi! What can you do?', aiErr:'AI is unavailable.', aiNew:'New chat', aiPlayer:'Player', aiOpen:'Open player', aiNote:'lowend AI can make mistakes.', aiMenu:'Menu', aiChats:'Chats', aiNoChats:'No chats yet', aiDelQ:'Delete this chat?', aiDel:'Delete',
+  aiH:'lowend AI', aiPh:'Message lowend AI', aiHello:'lowend AI', aiSub:'Describe the sound or just chat', aiS1:'Make a sad slowed + reverb version', aiS2:'Add strong bass that is audible on a phone', aiS3:'Hi! What can you do?', aiErr:'AI is unavailable.', aiNew:'New chat', aiPlayer:'Player', aiOpen:'Open player', aiNote:'lowend AI can make mistakes.', aiMenu:'Menu', aiChats:'Chats', aiNoChats:'No chats yet', aiDelQ:'Delete this chat?', aiDel:'Delete', aiAttPhoto:'Photos & videos', aiAttCam:'Camera', aiAttFile:'File (PDF, text)', aiAttAdd:'Attach', aiLook:'Take a look at the attachment', aiAttMax:'Up to 6 attachments.', aiAttBig:'File is too large.', aiAttFail:'Could not open the file.',
   h1:'1. Track', drop:'Tap and choose a song (mp3, m4a, wav)', h2:'2. Sound', chipLoud:'Louder', chipEcho:'Echo', chipWater:'Underwater', chipReset:'Reset',
   lSub:'Sub bass', lDist:'Distortion', chipSub:'Sub bass', chipDist:'Distortion', chipBBS:'Bass boosted + sped up', chipSR:'Slowed + reverb', chipNC:'Nightcore',
   lSpeed:'Speed', lBass:'Bass', lReverb:'Reverb', lPan:'8D pan', lVol:'Volume', lTreble:'Treble', lEcho:'Echo', lMuffle:'Underwater',
@@ -928,7 +964,7 @@ const persistChats = () => {
 };
 function saveThread(th) { // вызывается после каждого нового сообщения
   th.msgs = th.msgs.slice(-60); th.ts = Date.now();
-  if (!th.title) { const f = th.msgs.find(m => m.role === 'user'); th.title = (f ? f.text : 'Chat').replace(/\s+/g, ' ').trim().slice(0, 40); }
+  if (!th.title) { const f = th.msgs.find(m => m.role === 'user'); th.title = ((f && (f.text || (f.atts && f.atts[0] && f.atts[0].n))) || 'Chat').replace(/\s+/g, ' ').trim().slice(0, 40); }
   if (!chats.includes(th)) chats.unshift(th); else chats.sort((a, b) => b.ts - a.ts);
   persistChats(); renderChatList();
 }
@@ -954,18 +990,21 @@ function delThread(th) {
 function newChat() { if (!cur.msgs.length) { showAI(true); } else { cur = newThread(); showAI(true); } renderChat(); renderChatList(); }
 let aiBusy = false;
 const drawer = $('drawer');
-function drawerOpen() { renderChatList(); drawer.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => drawer.classList.add('open'))); }
+function drawerOpen() { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); renderChatList(); drawer.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => drawer.classList.add('open'))); }
 function drawerClose() { drawer.classList.remove('open'); setTimeout(() => { if (!drawer.classList.contains('open')) drawer.hidden = true; }, 240); }
 function showAI(on) {
-  $('aiApp').hidden = !on; document.body.style.overflow = on ? 'hidden' : '';
+  $('aiApp').hidden = !on; document.body.style.overflow = on ? 'hidden' : ''; document.documentElement.classList.toggle('ai-lock', on);
+  if (!on) { aiEl.style.height = ''; aiEl.style.top = ''; aiEl.classList.remove('kb'); $('aiPop').hidden = true; $('aiPlus').classList.remove('on'); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } else fitAI();
   $('dAI').classList.toggle('on', on); $('dPlayer').classList.toggle('on', !on);
   renderChatList();
   if (on) { renderChat(); if (!('ontouchstart' in window)) setTimeout(() => $('aiIn').focus(), 60); }
 }
+const aiEl = $('aiApp');
 const toBottom = () => { const f = $('aiFeed'); f.scrollTop = f.scrollHeight; };
 function msgEl(m, animate) {
   const d = document.createElement('div'); d.className = 'msg ' + (m.role === 'user' ? 'u' : 'a') + (m.err ? ' err' : '');
   const tx = document.createElement('span'); d.appendChild(tx);
+  if (m.atts && m.atts.length) { const w = document.createElement('div'); w.className = 'ai-thumbs'; if (!m.text) w.style.marginBottom = '0'; m.atts.forEach(a => w.appendChild(attEl(a, false))); d.insertBefore(w, tx); }
   if (m.role === 'user' || !animate) tx.textContent = m.text;
   else { // печатается постепенно, как ответ в чате
     const full = m.text, step = Math.max(1, Math.ceil(full.length / 80)); let n = 0;
@@ -991,15 +1030,31 @@ function renderChat() {
   } else cur.msgs.forEach(m => col.appendChild(msgEl(m, false)));
   toBottom();
 }
+const updSend = () => { $('aiSend').disabled = aiBusy || attBusy > 0 || (!$('aiIn').value.trim() && !atts.length); };
 async function aiSend(text) {
-  text = String(text === undefined ? $('aiIn').value : text).trim(); if (!text || aiBusy) return;
-  aiBusy = true; $('aiIn').value = ''; aiGrow(); $('aiSend').disabled = true;
-  const th = cur; th.msgs.push({ role: 'user', text }); saveThread(th); renderChat();
+  const fromBox = text === undefined;
+  if (fromBox && attBusy > 0) return;
+  text = String(fromBox ? $('aiIn').value : text).trim();
+  const sent = fromBox ? atts.filter(a => !a.load) : [];
+  if ((!text && !sent.length) || aiBusy) return;
+  let attach;
+  if (sent.length) {
+    let imgs = sent.flatMap(a => a.imgs || []);
+    if (imgs.length > 12) { const k = Math.ceil(imgs.length / 12); imgs = imgs.filter((_, i) => i % k === 0).slice(0, 12); }
+    attach = { images: imgs.map(d => ({ mime: 'image/jpeg', data: d })), pdfs: sent.filter(a => a.k === 'pdf').map(a => ({ name: a.n, data: a.pdf })), files: sent.filter(a => a.k === 'text').map(a => ({ name: a.n, text: a.text })), note: sent.filter(a => a.k === 'video').map(a => a.note).join(' ') };
+    if (JSON.stringify(attach).length > 9e6) return aiWarn(t('aiAttBig'));
+  }
+  aiBusy = true; $('aiPop').hidden = true; $('aiPlus').classList.remove('on');
+  if (fromBox) { $('aiIn').value = ''; aiGrow(); atts = []; renderAtts(); }
+  updSend();
+  const th = cur, um = { role: 'user', text }; if (sent.length) um.atts = sent.map(a => ({ k: a.k, n: a.n, th: a.th || '' }));
+  th.msgs.push(um); saveThread(th); renderChat();
   const typing = document.createElement('div'); typing.className = 'msg a dots'; typing.innerHTML = '<span></span><span></span><span></span>';
   $('aiCol').appendChild(typing); toBottom();
   try {
-    const r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', 'x-token': tok }, body: JSON.stringify({ messages: th.msgs.slice(-12).map(m => ({ role: m.role, text: m.text })), current: S, lang }) });
-    const j = await r.json(); if (!r.ok) throw new Error(j.error || t('aiErr'));
+    const hist = th.msgs.slice(-12).map((m, i, arr) => ({ role: m.role, text: (m.text || (m.atts ? t('aiLook') : '')) + (m.atts && i < arr.length - 1 ? ' [attached: ' + m.atts.map(a => a.n).join(', ') + ']' : '') }));
+    const r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', 'x-token': tok }, body: JSON.stringify({ messages: hist, current: S, lang, attach }) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || t('aiErr'));
     const n = { ...S }, tags = [];
     for (const k in AIR) if (j[k] !== undefined && isFinite(+j[k])) {
       const v = Math.round(Math.min(AIR[k][1], Math.max(AIR[k][0], +j[k])) * 100) / 100; n[k] = v;
@@ -1010,9 +1065,116 @@ async function aiSend(text) {
     const m = { role: 'assistant', text: String(j.say).slice(0, 1500), tags }; th.msgs.push(m); saveThread(th);
     typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl(m, true));
   } catch (e) { typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl({ role: 'assistant', text: e.message || t('aiErr'), err: true }, false)); }
-  aiBusy = false; $('aiSend').disabled = !$('aiIn').value.trim(); toBottom();
+  aiBusy = false; updSend(); toBottom();
 }
 function aiGrow() { const a = $('aiIn'); a.style.height = 'auto'; a.style.height = Math.min(140, a.scrollHeight) + 'px'; }
+/* ---------- подгонка чата под клавиатуру (iOS не уменьшает окно, а прокручивает его) ---------- */
+const vv = window.visualViewport;
+function fitAI() {
+  if (aiEl.hidden) return;
+  const f = $('aiFeed'), near = f.scrollHeight - f.scrollTop - f.clientHeight < 80;
+  if (vv) { aiEl.style.height = Math.round(vv.height) + 'px'; aiEl.style.top = Math.round(vv.offsetTop) + 'px'; aiEl.classList.toggle('kb', window.innerHeight - vv.height > 120); }
+  if (near) toBottom();
+}
+if (vv) { vv.addEventListener('resize', fitAI); vv.addEventListener('scroll', fitAI); }
+window.addEventListener('orientationchange', () => setTimeout(fitAI, 300));
+$('aiIn').addEventListener('focus', () => { fitAI(); setTimeout(fitAI, 150); setTimeout(fitAI, 450); });
+$('aiIn').addEventListener('blur', () => setTimeout(fitAI, 100));
+/* ---------- вложения: фото, видео, PDF и текст (как «+» в Claude) ---------- */
+const AT_MAX = 6;
+let atts = [], attBusy = 0, noteT;
+function aiWarn(msg) {
+  const n = document.querySelector('.ai-note'); n.textContent = msg; n.style.color = '#ff6b6b';
+  clearTimeout(noteT); noteT = setTimeout(() => { n.textContent = t('aiNote'); n.style.color = ''; }, 4000);
+}
+const isImgF = f => /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(f.name || '');
+const isVidF = f => /^video\//.test(f.type) || /\.(mp4|mov|m4v|webm|3gp)$/i.test(f.name || '');
+const isPdfF = f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name || '');
+const isTxtF = f => /^text\//.test(f.type) || /json|xml|javascript/.test(f.type) || /\.(txt|md|csv|json|js|ts|html|css|py|xml|ya?ml|log|srt|lrc)$/i.test(f.name || '');
+function scaled(src, w, h, max) {
+  const k = Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+const jpg = (c, q) => c.toDataURL('image/jpeg', q);
+async function openImg(f) {
+  if (window.createImageBitmap) { try { const b = await createImageBitmap(f, { imageOrientation: 'from-image' }); return { el: b, w: b.width, h: b.height, done: () => b.close && b.close() }; } catch (e) {} }
+  const url = URL.createObjectURL(f);
+  try {
+    const i = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+    return { el: i, w: i.naturalWidth, h: i.naturalHeight, done: () => URL.revokeObjectURL(url) };
+  } catch (e) { URL.revokeObjectURL(url); throw e; }
+}
+async function procImage(f) {
+  const im = await openImg(f);
+  try { return { k: 'img', n: f.name || 'photo', th: jpg(scaled(im.el, im.w, im.h, 96), .6), imgs: [jpg(scaled(im.el, im.w, im.h, 1280), .82).split(',')[1]] }; }
+  finally { im.done(); }
+}
+async function procVideo(f) { // видео превращаем в несколько кадров: так его видят и Gemini, и Claude
+  const url = URL.createObjectURL(f), v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+  try {
+    await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('video')), 15000); v.onloadedmetadata = () => { clearTimeout(to); res(); }; v.onerror = () => { clearTimeout(to); rej(new Error('video')); }; });
+    const d = isFinite(v.duration) && v.duration > 0 ? v.duration : 1, n = d < 2 ? 1 : Math.min(6, Math.max(2, Math.ceil(d / 4))), imgs = []; let th = '';
+    for (let i = 0; i < n; i++) {
+      const at = Math.max(0, Math.min(d - .05, (i + .5) / n * d));
+      if (Math.abs(v.currentTime - at) > .01) await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('video')), 8000); v.onseeked = () => { clearTimeout(to); res(); }; v.currentTime = at; });
+      if (!v.videoWidth) throw new Error('video');
+      imgs.push(jpg(scaled(v, v.videoWidth, v.videoHeight, 896), .75).split(',')[1]);
+      if (!i) th = jpg(scaled(v, v.videoWidth, v.videoHeight, 96), .6);
+    }
+    return { k: 'video', n: f.name || 'video', th, imgs, note: 'video "' + (f.name || 'video') + '", ' + fmt(d) + ', ' + imgs.length + ' frames in order, no sound' };
+  } finally { URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (e) {} }
+}
+const readB64 = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(f); });
+async function procPdf(f) {
+  if (f.size > 5e6) throw new Error('big');
+  return { k: 'pdf', n: f.name || 'file.pdf', th: '', pdf: await readB64(f) };
+}
+async function procText(f) {
+  if (f.size > 2e6) throw new Error('big');
+  return { k: 'text', n: f.name || 'file.txt', th: '', text: (await f.text()).slice(0, 15000) };
+}
+function attEl(a, removable) {
+  const d = document.createElement('div'); d.className = 'att' + (a.th ? '' : ' file') + (a.load ? ' load' : '');
+  if (a.th) {
+    const i = document.createElement('img'); i.src = a.th; i.alt = ''; d.appendChild(i);
+    if (a.k === 'video') { const b = document.createElement('span'); b.className = 'vb'; b.textContent = '▶'; d.appendChild(b); }
+  } else {
+    const b = document.createElement('b'); b.textContent = a.load ? '…' : a.k === 'pdf' ? 'PDF' : 'TXT';
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = a.n || '';
+    d.append(b, n);
+  }
+  if (removable && !a.load) {
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', t('aiDel'));
+    x.onclick = () => { atts = atts.filter(z => z !== a); renderAtts(); updSend(); };
+    d.appendChild(x);
+  }
+  return d;
+}
+function renderAtts() { const box = $('aiAtts'); box.innerHTML = ''; atts.forEach(a => box.appendChild(attEl(a, true))); }
+async function addFiles(list) {
+  for (const f of Array.from(list || [])) {
+    if (atts.length >= AT_MAX) { aiWarn(t('aiAttMax')); break; }
+    const ph = { load: true, n: f.name || '…', th: '' }; atts.push(ph); attBusy++; renderAtts(); updSend();
+    try {
+      let a;
+      if (isImgF(f)) a = await procImage(f); else if (isVidF(f)) a = await procVideo(f); else if (isPdfF(f)) a = await procPdf(f); else if (isTxtF(f)) a = await procText(f); else throw new Error('type');
+      Object.assign(ph, a, { load: false });
+    } catch (e) { atts = atts.filter(x => x !== ph); aiWarn(e.message === 'big' ? t('aiAttBig') : t('aiAttFail')); }
+    attBusy--; renderAtts(); updSend();
+  }
+}
+const aiPop = $('aiPop');
+$('aiPlus').onclick = e => { e.stopPropagation(); aiPop.hidden = !aiPop.hidden; $('aiPlus').classList.toggle('on', !aiPop.hidden); };
+document.addEventListener('click', e => { if (!aiPop.hidden && !aiPop.contains(e.target)) { aiPop.hidden = true; $('aiPlus').classList.remove('on'); } });
+const pickWith = id => () => { aiPop.hidden = true; $('aiPlus').classList.remove('on'); $(id).click(); };
+$('aiBtnPhoto').onclick = pickWith('aiFPhoto'); $('aiBtnCam').onclick = pickWith('aiFCam'); $('aiBtnDoc').onclick = pickWith('aiFDoc');
+['aiFPhoto', 'aiFCam', 'aiFDoc'].forEach(id => $(id).onchange = e => { const fs = Array.from(e.target.files || []); e.target.value = ''; addFiles(fs); });
+$('aiIn').addEventListener('paste', e => { const fs = Array.from((e.clipboardData && e.clipboardData.files) || []); if (fs.length) { e.preventDefault(); addFiles(fs); } });
+aiEl.addEventListener('dragover', e => { e.preventDefault(); aiEl.classList.add('drag'); });
+['dragleave', 'drop'].forEach(ev => aiEl.addEventListener(ev, e => { e.preventDefault(); aiEl.classList.remove('drag'); if (ev === 'drop') addFiles(e.dataTransfer.files); }));
 $('menuBtn').onclick = drawerOpen; $('aiMenu').onclick = drawerOpen;
 $('drScrim').onclick = drawerClose; $('drClose').onclick = drawerClose;
 $('dPlayer').onclick = () => { showAI(false); drawerClose(); };
@@ -1021,8 +1183,8 @@ $('dAI').onclick = () => { showAI(true); drawerClose(); };
 $('aiNew').onclick = newChat;
 $('dNew').onclick = () => { newChat(); drawerClose(); };
 $('aiSend').onclick = () => aiSend();
-$('aiIn').addEventListener('input', () => { aiGrow(); $('aiSend').disabled = aiBusy || !$('aiIn').value.trim(); });
-$('aiIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); aiSend(); } });
+$('aiIn').addEventListener('input', () => { aiGrow(); updSend(); });
+$('aiIn').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !('ontouchstart' in window)) { e.preventDefault(); aiSend(); } }); // на телефоне Enter это перенос строки, отправка кнопкой
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!drawer.hidden) drawerClose(); else if (!$('aiApp').hidden) showAI(false); } });
 $('qBtn').onclick = doSearch;
 $('q').addEventListener('keydown', e => e.key === 'Enter' && doSearch());
