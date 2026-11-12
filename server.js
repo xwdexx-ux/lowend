@@ -199,6 +199,14 @@ const SYS = 'Ты помощник видеостудии сайта lowend. В�
   'text (строка до 150 символов, \\n для переноса), font (old|thin|sans|display|mono|serif; old это стиль референса пользователя: Inter Light, суженный до 71%, строки вплотную; thin это тот же Inter Light обычной ширины), resolution (одно из: 1022x576, 1280x720, 1920x1080, 720x1280, 1080x1920, 1080x1080; в current оно называется res; 1022x576 это размер по умолчанию, 16:9), ' +
   'duration (секунды, число от 5 до 300), fade (секунды плавного появления текста из темноты, 0-10), track (точное название из savedTracks или null), color (hex текста), bg (hex фона), progress (true|false). ' +
   'Поля, которые пользователь не просил менять, оставляй такими же, как в current.';
+const EDIT_FIELDS = 'music (номер видео, из которого брать музыку, с 1), also (true: клипы брать и из видео с музыкой), ' +
+  'res (\"same:N\" = такое же разрешение, как у видео номер N; или WxH, например 1080x1920, 720x1280, 1280x720, 1080x1080, 2160x3840), ' +
+  'len (длина эдита, секунды 3-120), start (с какой секунды брать музыку), tempo (fast = каждый бит, mid, slow, mix = вразнобой), ' +
+  'text (надпись или символы поверх видео, \\n для переноса; пустая строка убирает), textPos (top|center|bottom), textColor (hex), textFont (old|thin|sans|display|mono|serif), textSize (3-16, % высоты кадра), ' +
+  'filter (none|bw|warm|cool|moody|vivid), vignette (true|false), grain (true|false), flash (true|false: вспышка на каждом ударе), zoom (true|false: пульс приближения на ударе), fps (30|60), quality (fast|high|max)';
+const SYS_EDIT = 'Ты помощник видео-эдитора сайта lowend. Пользователь описывает монтаж: клипы из его видео режутся вразброс под биты музыки, которая берётся из одного из видео. ' +
+  'Тебе дают список видео (номер, имя, размер, длина) и current (текущие настройки). Верни ТОЛЬКО JSON без пояснений и без markdown с полями, которые пользователь просил изменить: ' + EDIT_FIELDS + '. ' +
+  'Если пользователь просит качество «очень хорошее» или «лучшее», ставь quality high или max и fps 60. Поля, которые не просили менять, не включай.';
 const aiHits = new Map();
 // Gemini: gemini-2.5-flash закрыт Google 16.10.2026 (отсюда 404), поэтому пробуем список моделей; рабочая запоминается
 const goodBy = { free: '', pro: '' };
@@ -254,15 +262,18 @@ function studioAI(req, res, h) {
   req.on('end', async () => {
     try {
       const b = JSON.parse(body);
-      const user = JSON.stringify({ request: String(b.prompt).slice(0, 500), savedTracks: b.tracks, current: b.current });
+      const edit = b.mode === 'edit', sysP = edit ? SYS_EDIT : SYS;
+      const user = edit
+        ? JSON.stringify({ request: String(b.prompt).slice(0, 500), videos: (Array.isArray(b.videos) ? b.videos : []).slice(0, 12).map((v, i) => ({ n: i + 1, name: String((v || {}).name || '').slice(0, 60), w: +(v || {}).w || 0, h: +(v || {}).h || 0, dur: +(v || {}).dur || 0 })), current: b.current })
+        : JSON.stringify({ request: String(b.prompt).slice(0, 500), savedTracks: b.tracks, current: b.current });
       let text;
       if (GKEY) { // Gemini (есть бесплатный тариф)
-        text = await geminiText(GKEY, SYS, [{ role: 'user', parts: [{ text: user }] }], false, false, 700, 0);
+        text = await geminiText(GKEY, sysP, [{ role: 'user', parts: [{ text: user }] }], false, false, edit ? 900 : 700, 0);
       } else { // Claude (платный)
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' },
           signal: AbortSignal.timeout(25000),
-          body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5', max_tokens: 400, system: SYS, messages: [{ role: 'user', content: user }] })
+          body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5', max_tokens: edit ? 700 : 400, system: sysP, messages: [{ role: 'user', content: user }] })
         });
         const j = await r.json();
         if (!r.ok) throw new Error('Claude ' + r.status + ': ' + JSON.stringify(j).slice(0, 300));
@@ -283,6 +294,10 @@ const SOUND_SYS = 'Ты lowend AI, дружелюбный чат-ассисте�
   'Только если пользователь просит изменить звук, добавь в тот же JSON нужные поля: speed (0.3-2, 1 = оригинал, slowed ~0.8-0.9, nightcore ~1.25-1.35), bass (0-40 дБ), reverb (0-100), pan (0-100, 8D), vol (0-400, обычно 100), treble (0-20), echo (0-100), muffle (0-100, «из-под воды»), sub (0-100), dist (0-100). ' +
   'Поля, которые не просили менять, не включай. Если просят найти или подобрать песню, добавь search (строка для поиска). ' +
   'Не ставь bass выше 20 и sub выше 60 без явной просьбы: на динамике телефона сверхнизкие частоты не слышны, лучше умеренный bass и немного dist.';
+const VIDEO_SYS = 'Если пользователь просит сделать видео, добавь в JSON поле video. ' +
+  'Эдит (нарезка клипов из прикреплённых видео вразброс под биты, музыка из одного из них, можно фильтры и надпись поверх): {\"type\":\"edit\", поля: ' + EDIT_FIELDS + '}. ' +
+  'Видео с текстом поверх трека: {\"type\":\"text\", поля: text, font (old|thin|sans|display|mono|serif), resolution (1022x576, 1280x720, 1920x1080, 720x1280, 1080x1920, 1080x1080), duration (5-300 с), fade (0-10 с), color (hex), bg (hex), progress (true|false)}. ' +
+  'Видео собирает сайт в Студии после нажатия кнопки, поэтому в say коротко скажи, что всё настроено и осталось нажать кнопку в Студии. Не включай в video поля, которые не просили менять. Если для эдита нет прикреплённых видео, попроси прикрепить и не добавляй video.';
 const soundHits = new Map();
 
 // Чтение тела запроса с лимитом: при превышении отвечаем 413, а не оставляем запрос висеть
@@ -346,7 +361,10 @@ function soundAI(req, res) {
       if (att.note) last.text += '\n[' + att.note + ']';
       for (const f of att.files) last.text += '\n\n[Файл: ' + f.name + ']\n' + f.text;
       const withFiles = hasAttach(att);
-      const sys = SOUND_SYS + '\nЯзык интерфейса: ' + (b.lang === 'ru' ? 'ru' : 'en') + '. Текущие настройки звука: ' + JSON.stringify(b.current || {});
+      const studioOk = await hasStudio(th).catch(() => false);
+      const vids = (Array.isArray(b.videos) ? b.videos : []).slice(0, 12).map((v, i) => (i + 1) + ') «' + String((v || {}).n || 'video').replace(/["\r\n]/g, ' ').slice(0, 50) + '» ' + (+(v || {}).w || 0) + 'x' + (+(v || {}).h || 0) + ', ' + Math.round(+(v || {}).dur || 0) + ' с').join('; ');
+      const sys = SOUND_SYS + '\nЯзык интерфейса: ' + (b.lang === 'ru' ? 'ru' : 'en') + '. Текущие настройки звука: ' + JSON.stringify(b.current || {}) +
+        '\nВидео-студия: ' + (studioOk ? 'доступна этому пользователю. ' + VIDEO_SYS + (vids ? ' Видео, которые пользователь прикрепил (по номерам): ' + vids + '.' : ' Видео пока не прикреплены.') : 'недоступна этому пользователю (нужен Premium). Если просят сделать видео или эдит, скажи об этом и не добавляй поле video.');
       let text;
       if (GKEY) {
         const contents = msgs.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] }));
@@ -366,6 +384,7 @@ function soundAI(req, res) {
       try { o = JSON.parse(clean); } catch (e) { const m = clean.match(/\{[\s\S]*\}/); try { o = m ? JSON.parse(m[0]) : null; } catch (e2) { o = null; } }
       if (!o || typeof o !== 'object') o = { say: clean };
       const keep = {}; for (const k of ['say', 'speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle', 'sub', 'dist', 'search']) if (o[k] !== undefined) keep[k] = o[k];
+      if (studioOk && o.video && typeof o.video === 'object' && ['edit', 'text'].includes(o.video.type) && JSON.stringify(o.video).length < 1500) keep.video = o.video;
       if (!keep.say) throw new Error('empty reply: ' + text.slice(0, 200));
       out(200, keep);
     } catch (e) { console.log('ai error:', e.message); out(500, { error: 'ИИ не смог обработать запрос. / AI could not process the request.' }); }
