@@ -45,19 +45,21 @@
   let root = null, cv = null, busy = false;
 
   const css = document.createElement('style');
-  css.textContent = `#studio{position:fixed;inset:0;z-index:80;background:#000;overflow:auto;padding:16px}
-#studio .box{max-width:760px;margin:0 auto;padding-bottom:60px}
+  css.textContent = `#studio{position:fixed;inset:0;z-index:80;background:#000;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-text-size-adjust:100%;padding:16px}
+#studio .box{max-width:760px;margin:0 auto;padding-bottom:60px;min-width:0}
+#studio .f,#studio .two>*{min-width:0}
 #studio .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 #studio h2{margin:0}
 #studio canvas{width:100%;height:auto;border-radius:12px;border:1px solid var(--edge);display:block}
 #studio .f{display:grid;gap:6px;margin-top:14px}
 #studio label{font-weight:600;font-size:14px}
-#studio input[type=text],#studio input[type=number],#studio select,#studio textarea{width:100%;background:var(--field);border:1px solid var(--edge);border-radius:12px;padding:11px 12px;color:var(--text);font:inherit}
+#studio input[type=text],#studio input[type=number],#studio select,#studio textarea{width:100%;background:var(--field);border:1px solid var(--edge);border-radius:12px;padding:11px 12px;color:var(--text);font:inherit;font-size:16px;max-width:100%;box-sizing:border-box}
 #studio textarea{min-height:84px;resize:vertical}
-#studio .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#studio .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 #studio input[type=color]{width:100%;height:44px;border:1px solid var(--edge);border-radius:12px;background:var(--field);padding:4px}
-#studio video{width:100%;margin-top:12px;border-radius:12px}`;
+#studio video{width:100%;max-width:100%;margin-top:12px;border-radius:12px}`;
   document.head.append(css);
+  document.addEventListener('gesturestart', e => { if (root && !root.hidden) e.preventDefault(); }, { passive: false }); // iOS: без щипка-приближения в студии
 
   function wrap(g, text, maxW) {
     const out = [];
