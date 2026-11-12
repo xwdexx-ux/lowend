@@ -206,7 +206,7 @@
       <label style="display:flex;gap:8px;align-items:center;margin-top:14px"><input type="checkbox" id="stProg"> ${tr('Полоска прогресса внизу')}</label>
       <button class="btn" id="stGo" style="width:100%;margin-top:16px">${tr('Сделать видео')}</button>
       <p class="hint" id="stStatus" style="margin-top:10px;text-align:center"></p>
-      <div id="stOut"></div>${edHTML()}</div>`;
+      <div id="stOut"></div></div>`;
     document.body.append(root); cv = $('stCanvas');
     $('stClose').onclick = () => root.hidden = true;
     $('stGo').onclick = render; $('stAIgo').onclick = askAI;
@@ -230,7 +230,6 @@
       const all = getP(); all[name] = Object.fromEntries(STYLE.map(k => [k, d[k]])); setP(all); fillPresets(name);
     };
     $('stPDel').onclick = () => { const k = $('stPreset').value; if (!k) return; const all = getP(); delete all[k]; setP(all); fillPresets(); };
-    edWire();
   }
   // --- эдит: поиск битов и план нарезки (чистые функции) ---
   function edPeaks(buf, cutoff) { // моменты резких ударов в звуке, секунды
@@ -278,128 +277,48 @@
     }
     return segs;
   }
-  // --- эдит: интерфейс, ИИ, фильтры, надписи и сборка видео ---
-  Object.assign(EN, { 'Эдит из видео (клипы под бит)': 'Video edit (clips on the beat)', 'Сделать эдит': 'Make the edit', 'Добавь хотя бы одно видео.': 'Add at least one video.', 'Разбираю музыку…': 'Analyzing the music…', 'Быстро (каждый бит)': 'Fast (every beat)', 'Средне': 'Medium', 'Медленно': 'Slow', 'Вразнобой': 'Mixed', 'Темп нарезки': 'Cutting pace', 'Длина эдита (сек)': 'Edit length (s)', 'Музыка с (сек)': 'Music from (s)', 'Клипы брать и из видео с музыкой': 'Also use the music video for clips', 'Скачать видео (': 'Download video (', 'Надпись и символы поверх (необязательно)': 'Text and symbols on top (optional)', 'Фильтр': 'Filter', 'Без фильтра': 'No filter', 'Чёрно-белый': 'Black & white', 'Тёплый': 'Warm', 'Холодный': 'Cool', 'Мрачный': 'Moody', 'Яркий': 'Vivid', 'Виньетка': 'Vignette', 'Зерно': 'Film grain', 'Вспышка на ударе': 'Flash on beat', 'Пульс приближения на ударе': 'Zoom pulse on beat', 'Качество': 'Quality', 'Высокое': 'High', 'Максимум': 'Maximum', 'Быстро': 'Fast', 'Кадров в секунду': 'Frames per second', 'Положение надписи': 'Text position', 'Сверху': 'Top', 'По центру': 'Center', 'Снизу': 'Bottom', 'Опиши эдит словами': 'Describe the edit', 'ИИ думает…': 'AI is thinking…' });
-  let edItems = [], edMusic = 0; const edCustom = new Set();
-  const edMsg = m => { const s = $('edStatus'); if (s) s.textContent = m; };
+  // --- эдит: собирается из чата lowend AI (window.studioEdit). Интерфейса эдита в Студии больше нет: Студия только для видео с текстом ---
+  Object.assign(EN, { 'Добавь хотя бы одно видео.': 'Add at least one video.', 'Разбираю музыку…': 'Analyzing the music…', 'Готовлю клипы…': 'Preparing the clips…', 'Открываю ': 'Opening ', 'Не получилось открыть ': 'Could not open ', 'Студия занята: дождись конца текущей сборки.': 'The Studio is busy: wait for the current render to finish.', 'Записываю: ': 'Recording: ', ' с. Не закрывай страницу и не блокируй экран.': ' s. Do not close the page or lock the screen.', 'Не получилось достать звук из видео ': 'Could not get the sound from ', 'В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ': 'The music video has under 2 seconds of sound after that second. Its length: ', 'Этот браузер не умеет записывать видео.': 'This browser cannot record video.' });
   const evenN = n => Math.max(2, Math.round(n / 2) * 2);
-  const edHTML = () => `<details id="edBox" style="margin-top:26px"><summary style="font-weight:600;cursor:pointer">${tr('Эдит из видео (клипы под бит)')}</summary>
-      <p class="hint" style="margin-top:10px">${tr('Добавь видео: из одного возьмётся музыка, из остальных нарежутся клипы вразброс под биты.')}</p>
-      <div class="f"><label for="edAI">${tr('Опиши эдит словами')}</label><div class="src"><input type="text" id="edAI" placeholder="${tr('Например: разрешение как у первого видео, быстро, ч/б, надпись ★ nexide')}"><button class="btn ghost sm" id="edAIgo">${tr('ИИ')}</button></div></div>
-      <input type="file" id="edFiles" accept="video/*" multiple style="margin-top:12px">
-      <div id="edList"></div>
-      <div class="two">
-        <div class="f"><label for="edTempo">${tr('Темп нарезки')}</label><select id="edTempo"><option value="fast">${tr('Быстро (каждый бит)')}</option><option value="mid" selected>${tr('Средне')}</option><option value="slow">${tr('Медленно')}</option><option value="mix">${tr('Вразнобой')}</option></select></div>
-        <div class="f"><label for="edRes">${tr('Разрешение')}</label><select id="edRes"></select></div>
-        <div class="f"><label for="edLen">${tr('Длина эдита (сек)')}</label><input type="number" id="edLen" min="3" max="120" value="15"></div>
-        <div class="f"><label for="edStart">${tr('Музыка с (сек)')}</label><input type="number" id="edStart" min="0" step="0.1" value="0"></div>
-        <div class="f"><label for="edFilter">${tr('Фильтр')}</label><select id="edFilter"><option value="none">${tr('Без фильтра')}</option><option value="bw">${tr('Чёрно-белый')}</option><option value="warm">${tr('Тёплый')}</option><option value="cool">${tr('Холодный')}</option><option value="moody">${tr('Мрачный')}</option><option value="vivid">${tr('Яркий')}</option></select></div>
-        <div class="f"><label for="edQ">${tr('Качество')}</label><select id="edQ"><option value="high" selected>${tr('Высокое')}</option><option value="max">${tr('Максимум')}</option><option value="fast">${tr('Быстро')}</option></select></div>
-        <div class="f"><label for="edFps">${tr('Кадров в секунду')}</label><select id="edFps"><option value="60" selected>60</option><option value="30">30</option></select></div>
-      </div>
-      <div style="display:grid;gap:8px;margin-top:14px">
-        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="edVig"> ${tr('Виньетка')}</label>
-        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="edGrain"> ${tr('Зерно')}</label>
-        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="edFlash"> ${tr('Вспышка на ударе')}</label>
-        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="edZoom"> ${tr('Пульс приближения на ударе')}</label>
-        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="edAlso"> ${tr('Клипы брать и из видео с музыкой')}</label>
-      </div>
-      <div class="f"><label for="edText">${tr('Надпись и символы поверх (необязательно)')}</label><textarea id="edText" placeholder="★ nexide ★"></textarea></div>
-      <div class="two">
-        <div class="f"><label for="edTextPos">${tr('Положение надписи')}</label><select id="edTextPos"><option value="center">${tr('По центру')}</option><option value="top">${tr('Сверху')}</option><option value="bottom">${tr('Снизу')}</option></select></div>
-        <div class="f"><label for="edTextFont">${tr('Шрифт')}</label><select id="edTextFont">${Object.entries(FONT_NAMES).map(([k, v]) => `<option value="${k}">${tr(v)}</option>`).join('')}</select></div>
-        <div class="f"><label for="edTextColor">${tr('Цвет текста')}</label><input type="color" id="edTextColor" value="#ffffff"></div>
-        <div class="f"><label for="edTextSize">${tr('Размер текста')}</label><input type="range" id="edTextSize" min="3" max="16" step="0.5" value="7"></div>
-      </div>
-      <button class="btn" id="edGo" style="width:100%;margin-top:16px">${tr('Сделать эдит')}</button>
-      <p class="hint" id="edStatus" style="margin-top:10px;text-align:center"></p>
-      <div id="edOut"></div></details>`;
-  const ED_RES = ['1080x1920', '720x1280', '2160x3840', '1920x1080', '1280x720', '3840x2160', '1080x1080'];
-  function edResOpts() {
-    const sel = $('edRes'); if (!sel) return; const keep = sel.value || '1080x1920'; sel.innerHTML = '';
-    const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o); };
-    ED_RES.forEach(v => add(v, (v.split('x')[0] * 1 < v.split('x')[1] * 1 ? '9:16' : v.split('x')[0] === v.split('x')[1] ? '1:1' : '16:9') + ' · ' + v.replace('x', '×')));
-    edCustom.forEach(v => add(v, v.replace('x', '×')));
-    edItems.forEach((it, i) => add('v:' + i, tr('Как у ') + '«' + it.name.slice(0, 24) + '» (' + evenN(it.w) + '×' + evenN(it.h) + ')'));
-    sel.value = [...sel.options].some(o => o.value === keep) ? keep : '1080x1920';
-  }
-  function edList() {
-    const box = $('edList'); if (!box) return; box.innerHTML = '';
-    if (edMusic >= edItems.length) edMusic = 0;
-    edItems.forEach((it, i) => {
-      const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:8px';
-      const lb = document.createElement('label'); lb.style.cssText = 'display:flex;gap:8px;align-items:center;flex:1;min-width:0;font-weight:400';
-      const rd = document.createElement('input'); rd.type = 'radio'; rd.name = 'edMusic'; rd.checked = i === edMusic; rd.onchange = () => { edMusic = i; };
-      const nm = document.createElement('span'); nm.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'; nm.textContent = (i + 1) + '. ' + it.name + ' · ' + Math.round(it.dur) + tr(' с');
-      lb.append(rd, nm);
-      const x = document.createElement('button'); x.className = 'btn ghost sm'; x.textContent = '✕'; x.onclick = () => { URL.revokeObjectURL(it.url); edItems.splice(i, 1); edList(); };
-      row.append(lb, x); box.append(row);
-    });
-    if (edItems.length) { const h = document.createElement('p'); h.className = 'hint'; h.textContent = tr('Кружок = откуда брать музыку.'); box.append(h); }
-    edResOpts();
-  }
-  async function edAdd(files) {
-    for (const f of files) {
-      if (edItems.length >= 12) { edMsg(tr('Максимум 12 видео.')); break; }
-      const url = URL.createObjectURL(f), v = document.createElement('video'); v.preload = 'metadata'; v.muted = true; v.playsInline = true; v.src = url;
-      const ok = await new Promise(res => { v.onloadedmetadata = () => res(true); v.onerror = () => res(false); setTimeout(() => res(false), 8000); });
-      if (!ok || !isFinite(v.duration) || v.duration < .5) { URL.revokeObjectURL(url); edMsg(tr('Не получилось открыть ') + f.name); continue; }
-      edItems.push({ file: f, url, dur: v.duration, name: f.name, w: v.videoWidth || 1080, h: v.videoHeight || 1920 });
-    }
-    edList();
-  }
   const FILTERS = ['none', 'bw', 'warm', 'cool', 'moody', 'vivid'], TEMPOS = ['fast', 'mid', 'slow', 'mix'], POS = ['top', 'center', 'bottom'], QS = ['fast', 'high', 'max'];
-  function edRead() {
-    return { music: edMusic + 1, also: $('edAlso').checked, res: $('edRes').value, len: +$('edLen').value || 15, start: +$('edStart').value || 0, tempo: $('edTempo').value,
-      text: $('edText').value, textPos: $('edTextPos').value, textColor: $('edTextColor').value, textFont: $('edTextFont').value, textSize: +$('edTextSize').value || 7,
-      filter: $('edFilter').value, vignette: $('edVig').checked, grain: $('edGrain').checked, flash: $('edFlash').checked, zoom: $('edZoom').checked, fps: +$('edFps').value || 60, quality: $('edQ').value };
-  }
-  function edApply(j) { // настройки от ИИ: всё проверяем
-    const setv = (id, v) => { const el = $(id); if (el) el.value = v; }, setc = (id, v) => { const el = $(id); if (el) el.checked = !!v; };
-    if (+j.music >= 1 && +j.music <= edItems.length) edMusic = Math.round(+j.music) - 1;
-    if (typeof j.also === 'boolean') setc('edAlso', j.also);
+  const ED_DEF = { music: 1, also: false, res: '1080x1920', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
+  function edSpec(j, items) { // настройки от ИИ -> проверенные настройки эдита
+    const E = { ...ED_DEF }, has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    if (+j.music >= 1 && +j.music <= items.length) E.music = Math.round(+j.music);
+    if (typeof j.also === 'boolean') E.also = j.also;
     if (typeof j.res === 'string') {
       let m;
-      if ((m = /^same:(\d+)$/.exec(j.res))) { if (edItems[+m[1] - 1]) { edList(); setv('edRes', 'v:' + (+m[1] - 1)); } }
-      else if ((m = /^(\d{3,4})x(\d{3,4})$/.exec(j.res)) && +m[1] >= 240 && +m[2] >= 240 && +m[1] <= 3840 && +m[2] <= 3840) {
-        const val = evenN(+m[1]) + 'x' + evenN(+m[2]); if (!ED_RES.includes(val)) edCustom.add(val); edResOpts(); setv('edRes', val);
-      }
+      if ((m = /^same:(\d+)$/.exec(j.res))) { if (items[+m[1] - 1]) E.res = 'v:' + (+m[1] - 1); }
+      else if ((m = /^(\d{3,4})x(\d{3,4})$/.exec(j.res)) && +m[1] >= 240 && +m[2] >= 240 && +m[1] <= 3840 && +m[2] <= 3840) E.res = evenN(+m[1]) + 'x' + evenN(+m[2]);
     }
-    if (+j.len) setv('edLen', Math.max(3, Math.min(120, Math.round(+j.len))));
-    if (j.start != null && isFinite(+j.start) && +j.start >= 0) setv('edStart', Math.round(+j.start * 10) / 10);
-    if (TEMPOS.includes(j.tempo)) setv('edTempo', j.tempo);
-    if (typeof j.text === 'string') setv('edText', j.text.slice(0, 200));
-    if (POS.includes(j.textPos)) setv('edTextPos', j.textPos);
-    if (/^#[0-9a-f]{6}$/i.test(j.textColor)) setv('edTextColor', j.textColor);
-    if (Object.prototype.hasOwnProperty.call(FONTS, j.textFont)) setv('edTextFont', j.textFont);
-    if (+j.textSize) setv('edTextSize', Math.max(3, Math.min(16, +j.textSize)));
-    if (FILTERS.includes(j.filter)) setv('edFilter', j.filter);
-    ['vignette:edVig', 'grain:edGrain', 'flash:edFlash', 'zoom:edZoom'].forEach(p => { const [k, id] = p.split(':'); if (typeof j[k] === 'boolean') setc(id, j[k]); });
-    if (+j.fps === 30 || +j.fps === 60) setv('edFps', +j.fps);
-    if (QS.includes(j.quality)) setv('edQ', j.quality);
-    edList();
+    if (+j.len) E.len = Math.max(3, Math.min(120, Math.round(+j.len)));
+    if (j.start != null && isFinite(+j.start) && +j.start >= 0) E.start = Math.round(+j.start * 10) / 10;
+    if (TEMPOS.includes(j.tempo)) E.tempo = j.tempo;
+    if (typeof j.text === 'string') E.text = j.text.slice(0, 200);
+    if (POS.includes(j.textPos)) E.textPos = j.textPos;
+    if (/^#[0-9a-f]{6}$/i.test(j.textColor)) E.textColor = j.textColor;
+    if (typeof j.textFont === 'string' && has(FONTS, j.textFont)) E.textFont = j.textFont;
+    if (+j.textSize) E.textSize = Math.max(3, Math.min(16, +j.textSize));
+    if (FILTERS.includes(j.filter)) E.filter = j.filter;
+    ['vignette', 'grain', 'flash', 'zoom'].forEach(k => { if (typeof j[k] === 'boolean') E[k] = j[k]; });
+    if (+j.fps === 30 || +j.fps === 60) E.fps = +j.fps;
+    if (QS.includes(j.quality)) E.quality = j.quality;
+    return E;
   }
-  async function edAIgo() {
-    const prompt = $('edAI').value.trim(); if (!prompt) return; edMsg(tr('ИИ думает…'));
+  async function edLoad(files, say) {
+    const items = [];
     try {
-      const r = await fetch('/api/studio-ai', { method: 'POST', headers: { 'content-type': 'application/json', 'x-token': tok },
-        body: JSON.stringify({ mode: 'edit', prompt, videos: edItems.map(i => ({ name: i.name, w: i.w, h: i.h, dur: Math.round(i.dur) })), current: edRead() }) });
-      const j = await r.json(); if (!r.ok) throw new Error(j.error);
-      edApply(j); edMsg(tr('Готово. Проверь настройки и нажми «Сделать эдит».'));
-    } catch (e) { edMsg(e.message || tr('ИИ недоступен.')); }
-  }
-  function edShow(blob, type, name) {
-    const out = $('edOut'); out.innerHTML = '';
-    const url = URL.createObjectURL(blob), ext = type.startsWith('video/mp4') ? 'mp4' : 'webm';
-    const v = document.createElement('video'); v.src = url; v.controls = true; v.playsInline = true; out.append(v);
-    const a = document.createElement('a'); a.href = url; a.download = name + '.' + ext; a.className = 'btn'; a.style.cssText = 'display:block;text-align:center;margin-top:10px;text-decoration:none'; a.textContent = tr('Скачать видео (') + ext + ')';
-    const probe = new File([blob], 'v.' + ext, { type: blob.type });
-    if (navigator.canShare && navigator.canShare({ files: [probe] })) {
-      const sv = document.createElement('button'); sv.className = 'btn'; sv.style.cssText = 'display:block;width:100%;margin-top:10px'; sv.textContent = tr('Сохранить в Фото');
-      sv.onclick = async () => { try { await navigator.share({ files: [new File([blob], name + '.' + ext, { type: blob.type })] }); } catch (e) {} };
-      out.append(sv); a.className = 'btn ghost'; a.textContent = tr('Скачать файл (в «Файлы»)');
-    }
-    out.append(a);
+      for (const f of files.slice(0, 12)) {
+        say(tr('Открываю ') + f.name + '…');
+        const url = URL.createObjectURL(f), v = document.createElement('video'); v.preload = 'metadata'; v.muted = true; v.playsInline = true; v.src = url;
+        const ok = await new Promise(res => { v.onloadedmetadata = () => res(true); v.onerror = () => res(false); setTimeout(() => res(false), 8000); });
+        const it = { file: f, url, dur: v.duration, name: f.name, w: v.videoWidth || 1080, h: v.videoHeight || 1920 };
+        v.removeAttribute('src'); v.load();
+        if (!ok || !isFinite(it.dur) || it.dur < .5) { URL.revokeObjectURL(url); throw new Error(tr('Не получилось открыть ') + f.name); }
+        items.push(it);
+      }
+    } catch (e) { items.forEach(i => URL.revokeObjectURL(i.url)); throw e; }
+    return items;
   }
   // фильтры без ctx.filter (его нет в Safari): режимы наложения работают везде
   let noiseCv = null, noisePat = null;
@@ -431,32 +350,30 @@
     g.globalAlpha = Math.min(1, t / .5); g.scale(sx, 1);
     lines.forEach((l, i) => g.fillText(l, w / 2 / sx, y0 + i * lh)); g.restore();
   }
-  async function edRender() {
-    if (busy) return;
-    if (!edItems.length) return edMsg(tr('Добавь хотя бы одно видео.'));
-    busy = true; const btn = $('edGo'); btn.disabled = true; const pool = [];
+  async function edBuild(E, items, say) {
+    const pool = [];
     try {
-      const E = edRead(), mi = Math.min(edMusic, edItems.length - 1), music = edItems[mi];
+      const mi = Math.min(E.music - 1, items.length - 1), music = items[mi];
       initAudio(); if (ctx.state !== 'running') await ctx.resume();
       try { await ensureInter(); await document.fonts.load('800 40px "Bricolage Grotesque"'); await document.fonts.load('400 40px "Space Mono"'); await document.fonts.load('400 40px "Instrument Sans"'); } catch (e) {}
-      edMsg(tr('Разбираю музыку…'));
+      say(tr('Разбираю музыку…'));
       let buf; try { buf = await ctx.decodeAudioData(await music.file.arrayBuffer()); } catch (e) { throw new Error(tr('Не получилось достать звук из видео ') + music.name); }
       const start = Math.max(0, E.start), len = Math.min(Math.max(3, E.len), 120, buf.duration - start);
       if (len < 2) throw new Error(tr('В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ') + Math.round(buf.duration) + tr(' с'));
-      let srcIdx = edItems.map((_, i) => i).filter(i => i !== mi);
-      if (!srcIdx.length || E.also) srcIdx = edItems.map((_, i) => i);
+      let srcIdx = items.map((_, i) => i).filter(i => i !== mi);
+      if (!srcIdx.length || E.also) srcIdx = items.map((_, i) => i);
       const usedBy = {}, per = srcIdx.length === 1 ? 2 : 1;
       for (const i of srcIdx) for (let k = 0; k < per; k++) {
-        const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.src = edItems[i].url;
-        v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none'; root.append(v);
-        pool.push({ v, dur: edItems[i].dur, used: usedBy[i] || (usedBy[i] = []) });
+        const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.src = items[i].url;
+        v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none'; document.body.append(v);
+        pool.push({ v, dur: items[i].dur, used: usedBy[i] || (usedBy[i] = []) });
       }
-      edMsg(tr('Готовлю клипы…'));
+      say(tr('Готовлю клипы…'));
       await Promise.all(pool.map(p => new Promise(res => { p.v.onloadeddata = res; p.v.onerror = res; setTimeout(res, 10000); p.v.play().then(() => p.v.pause(), () => {}); })));
       const gaps = { fast: [.3], mid: [.6], slow: [1.2], mix: [.3, .6, .3, 1.2, .45] }[E.tempo] || [.6];
       const cuts = edCuts(edBeats(buf, start, start + len), len, gaps, Math.random), segs = edPlan(cuts, pool, Math.random);
       let w, h; const vm = /^v:(\d+)$/.exec(E.res);
-      if (vm && edItems[+vm[1]]) { w = evenN(edItems[+vm[1]].w); h = evenN(edItems[+vm[1]].h); } else [w, h] = E.res.split('x').map(Number);
+      if (vm && items[+vm[1]]) { w = evenN(items[+vm[1]].w); h = evenN(items[+vm[1]].h); } else [w, h] = E.res.split('x').map(Number);
       const fps = E.fps === 30 ? 30 : 60, c = document.createElement('canvas'); c.width = w; c.height = h;
       const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
       const cover = (v, z) => { const vw = v.videoWidth, vh = v.videoHeight; if (!vw) return; const k = Math.max(w / vw, h / vh) * z; g.drawImage(v, (w - vw * k) / 2, (h - vh * k) / 2, vw * k, vh * k); };
@@ -473,7 +390,7 @@
       mr.start(1000); src.start(0, start, len);
       const af = Math.min(d.afade || 0, len), now = ctx.currentTime; fadeG.gain.setValueAtTime(1, now);
       if (af > 0) { fadeG.gain.setValueAtTime(1, now + len - af); fadeG.gain.linearRampToValueAtTime(0, now + len); }
-      let cur = -1; const t0 = performance.now();
+      let cur = -1, lastSay = -1; const t0 = performance.now();
       await new Promise(done => (function tick() {
         const t = (performance.now() - t0) / 1000; let i = cur < 0 ? 0 : cur;
         while (i < segs.length - 1 && t >= segs[i].t1) i++;
@@ -485,32 +402,30 @@
         const dt = t - segs[cur].t0, v = pool[segs[cur].k].v;
         if (!v.seeking && v.readyState >= 2) cover(v, E.zoom ? 1 + .08 * Math.pow(Math.max(0, 1 - dt / .22), 2) : 1);
         edFx(g, w, h, E, Math.max(0, 1 - dt / .12)); edTextDraw(g, w, h, E, t);
-        edMsg(tr('Записываю: ') + Math.round(t) + ' / ' + Math.round(len) + tr(' с. Не закрывай страницу и не блокируй экран.'));
+        const sec = Math.floor(t); if (sec !== lastSay) { lastSay = sec; say(tr('Записываю: ') + Math.min(sec, Math.round(len)) + ' / ' + Math.round(len) + tr(' с. Не закрывай страницу и не блокируй экран.')); }
         t >= len ? done() : requestAnimationFrame(tick);
       })());
       mr.stop(); await stopped; try { src.stop(); } catch (e) {} fadeG.disconnect();
-      edShow(new Blob(chunks, { type: type.split(';')[0] }), type, 'lowend-edit');
-      edMsg(tr('Готово!'));
-    } catch (e) { edMsg(e.message || tr('Не получилось собрать эдит.')); }
-    pool.forEach(p => { p.v.pause(); p.v.remove(); });
-    busy = false; btn.disabled = false;
+      return { blob: new Blob(chunks, { type: type.split(';')[0] }), type };
+    } finally { pool.forEach(p => { p.v.pause(); p.v.remove(); }); }
   }
-  function edWire() {
-    $('edFiles').onchange = async e => { const fl = [...e.target.files]; e.target.value = ''; await edAdd(fl); };
-    $('edGo').onclick = edRender; $('edAIgo').onclick = edAIgo; $('edAI').addEventListener('keydown', e => e.key === 'Enter' && edAIgo()); edList();
-  }
-  // чат lowend AI передаёт сюда настройки и прикреплённые видео: Студия открывается уже настроенной, остаётся нажать кнопку
-  window.studioFromChat = async (spec, files) => {
-    if (!spec || typeof spec !== 'object') return;
+  // чат lowend AI вызывает это сам: собирает эдит из прикреплённых видео и отдаёт готовый файл. status(текст) показывает ход работы в чате
+  window.studioEdit = async (spec, files, status) => {
+    const say = typeof status === 'function' ? status : () => {};
+    if (busy) throw new Error(tr('Студия занята: дождись конца текущей сборки.'));
+    if (!files || !files.length) throw new Error(tr('Добавь хотя бы одно видео.'));
+    busy = true; let items = [];
+    try {
+      items = await edLoad(files, say);
+      const r = await edBuild(edSpec(spec || {}, items), items, say);
+      return { blob: r.blob, ext: r.type.startsWith('video/mp4') ? 'mp4' : 'webm', name: 'lowend-edit' };
+    } finally { items.forEach(i => URL.revokeObjectURL(i.url)); busy = false; }
+  };
+  // чат lowend AI передаёт сюда настройки видео с текстом: Студия открывается уже настроенной, остаётся нажать кнопку. Эдит из клипов собирается в самом чате (studioEdit)
+  window.studioFromChat = async spec => {
+    if (!spec || typeof spec !== 'object' || spec.type !== 'text') return;
     await window.openStudio();
-    if (spec.type === 'text') { applyAI(spec); $('stStatus').textContent = tr('ИИ настроил видео. Проверь превью и нажми «Сделать видео».'); return; }
-    const key = f => f.name + ':' + f.size, have = new Set(edItems.map(i => key(i.file)));
-    await edAdd((files || []).filter(f => !have.has(key(f))));
-    const idx = n => { const f = (files || [])[n - 1]; return f ? edItems.findIndex(i => key(i.file) === key(f)) + 1 : 0; };
-    const s = { ...spec }; if (+s.music) s.music = idx(+s.music) || undefined;
-    const m = /^same:(\d+)$/.exec(String(s.res || '')); if (m) s.res = idx(+m[1]) ? 'same:' + idx(+m[1]) : undefined;
-    edApply(s); $('edBox').open = true; $('edBox').scrollIntoView({ block: 'start' });
-    edMsg(tr('ИИ всё настроил. Проверь настройки и нажми «Сделать эдит».'));
+    applyAI(spec); $('stStatus').textContent = tr('ИИ настроил видео. Проверь превью и нажми «Сделать видео».');
   };
   window.studioLang = async () => { if (!root || busy) return; const open = !root.hidden; root.remove(); root = null; if (open) await window.openStudio(); fillPresetsSafe(); };
   const fillPresetsSafe = () => { if (root) fillPresets(); };
