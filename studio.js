@@ -103,7 +103,7 @@
     $('stBg').value = d.bg; $('stRes').value = d.res; $('stDur').value = d.dur; $('stFade').value = d.fade; $('stStart').value = d.start; $('stEnd').value = d.end; $('stAfade').value = d.afade; $('stProg').checked = d.progress; preview();
   }
   function applyAI(j) {
-    if (typeof j.text === 'string') d.text = j.text.slice(0, 200);
+    if (typeof j.text === 'string') d.text = j.text.replace(/\\n/g, '\n').slice(0, 200);
     const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
     if (has(FONTS, j.font)) d.font = j.font;
     if (has(RES, j.resolution)) d.res = j.resolution; else if (has(SIZE_RES, j.size)) d.res = SIZE_RES[j.size];
@@ -124,10 +124,10 @@
         body: JSON.stringify({ prompt, tracks: all.map(t => t.title), current: { ...d, track: $('stTrack').selectedOptions[0].textContent } }) });
       const j = await r.json(); if (!r.ok) throw new Error(j.error);
       applyAI(j); st.textContent = tr('Готово. Проверь превью и нажми «Сделать видео».');
-    } catch (e) { st.textContent = e.message || tr('ИИ недоступен.'); }
+    } catch (e) { st.textContent = (e.name === 'TypeError' ? '' : e.message) || tr('ИИ недоступен.'); }
   }
   async function render() {
-    if (busy) return; busy = true; const st = $('stStatus'), btn = $('stGo'); btn.disabled = true;
+    if (busy) return; busy = true; const st = $('stStatus'), btn = $('stGo'); btn.disabled = true; let mrR = null, fadeR = null;
     try {
       const sel = $('stTrack').value;
       if (sel !== 'cur') {
@@ -150,7 +150,7 @@
       const mr = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: Math.max(w, h) >= 3840 ? 45e6 : Math.max(w, h) >= 1920 ? 20e6 : 12e6, audioBitsPerSecond: 256000 });
       const chunks = []; mr.ondataavailable = e => e.data.size && chunks.push(e.data);
       const stopped = new Promise(r => mr.onstop = r);
-      draw(g, w, h, 0, 0); mr.start(1000); outEl.play().catch(() => {}); startAt(d.start || 0);
+      mrR = mr; fadeR = fadeG; draw(g, w, h, 0, 0); mr.start(1000); outEl.play().catch(() => {}); startAt(d.start || 0);
       const af = Math.min(d.afade || 0, len), now = ctx.currentTime; // звук плавно затихает к концу видео
       fadeG.gain.setValueAtTime(1, now);
       if (af > 0) { fadeG.gain.setValueAtTime(1, now + len - af); fadeG.gain.linearRampToValueAtTime(0, now + len); }
@@ -174,7 +174,14 @@
         $('stOut').append(sv); a.className = 'btn ghost'; a.textContent = tr('Скачать файл (в «Файлы»)');
       }
       $('stOut').append(a); st.textContent = canShare ? tr('Готово! Нажми «Сохранить в Фото» и выбери «Сохранить видео».') : tr('Готово!'); preview();
-    } catch (e) { st.textContent = e.message || tr('Не получилось записать видео.'); }
+    } catch (e) {
+      console.error('studio render error:', e);
+      if (mrR) { // сбой посреди записи: останавливаем запись и звук, чтобы ничего не осталось работать в фоне
+        try { if (mrR.state !== 'inactive') mrR.stop(); } catch (e2) {} try { nodes.out.disconnect(fadeR); fadeR.disconnect(); } catch (e2) {}
+        try { stopSrc(); playing = false; outEl.pause(); setPlayUI(); } catch (e2) {}
+      }
+      st.textContent = humanErr(e, tr('Не получилось записать видео.'));
+    }
     busy = false; btn.disabled = false;
   }
 
@@ -279,6 +286,77 @@
   }
   // --- эдит: собирается из чата lowend AI (window.studioEdit). Интерфейса эдита в Студии больше нет: Студия только для видео с текстом ---
   Object.assign(EN, { 'Добавь хотя бы одно видео.': 'Add at least one video.', 'Разбираю музыку…': 'Analyzing the music…', 'Готовлю клипы…': 'Preparing the clips…', 'Открываю видео…': 'Opening the videos…', 'Не получилось открыть ': 'Could not open ', 'Студия занята: дождись конца текущей сборки.': 'The Studio is busy: wait for the current render to finish.', 'Записываю: ': 'Recording: ', ' с. Не закрывай страницу и не блокируй экран.': ' s. Do not close the page or lock the screen.', 'Не получилось достать звук из видео ': 'Could not get the sound from ', 'В этом видео нет звука: ': 'This video has no sound: ', 'В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ': 'The music video has under 2 seconds of sound after that second. Its length: ', 'Этот браузер не умеет записывать видео.': 'This browser cannot record video.' });
+  // --- понятные сообщения об ошибках: свои тексты показываем как есть, а сырые ошибки браузера и кода переводим на человеческий ---
+  Object.assign(EN, {
+    'Не получилось прочитать звук из видео. Попробуй другое видео или сохрани его как MP4.': 'Could not read the sound from the video. Try another video or save it as MP4.',
+    'Этот телефон не смог записать видео в таком формате. Попробуй разрешение поменьше, например 720p.': 'This device could not record video in this format. Try a lower resolution, for example 720p.',
+    'Браузер не дал записать видео или звук. Нажми ещё раз и не сворачивай сайт.': 'The browser did not allow recording video or sound. Tap again and do not minimize the site.',
+    'Не хватило памяти. Попробуй видео покороче или поменьше разрешение.': 'Out of memory. Try shorter videos or a lower resolution.',
+    'Не получилось собрать эдит.': 'Could not build the edit.',
+    'Это ошибка внутри сайта, а не в твоих видео': 'This is a bug inside the site, not a problem with your videos'
+  });
+  const CODE_ERR = /Can't find variable|is not defined|is not a function|is not an object|\(evaluating|Cannot read prop|undefined is not|null is not|not iterable/i;
+  function humanErr(e, fallback) {
+    const n = (e && e.name) || '', m = String((e && e.message) || e || '').trim();
+    if (n === 'Error' && m && !CODE_ERR.test(m)) return m; // наши собственные сообщения уже понятные
+    if (n === 'EncodingError') return tr('Не получилось прочитать звук из видео. Попробуй другое видео или сохрани его как MP4.');
+    if (n === 'NotSupportedError') return tr('Этот телефон не смог записать видео в таком формате. Попробуй разрешение поменьше, например 720p.');
+    if (n === 'NotAllowedError' || n === 'SecurityError') return tr('Браузер не дал записать видео или звук. Нажми ещё раз и не сворачивай сайт.');
+    if (n === 'QuotaExceededError' || /out of memory|allocation|array buffer/i.test(m)) return tr('Не хватило памяти. Попробуй видео покороче или поменьше разрешение.');
+    return (fallback || tr('Не получилось собрать эдит.')) + ' ' + tr('Это ошибка внутри сайта, а не в твоих видео') + (m ? ' (' + (n && n !== 'Error' ? n + ': ' : '') + m.slice(0, 120) + ')' : '') + '.';
+  }
+  window.studioErr = humanErr;
+  // --- эффекты и надпись эдита. Фильтры сделаны режимами наложения canvas, а не ctx.filter: в Safari на iPhone ctx.filter не работает ---
+  const noiseTiles = [];
+  function noiseTile(i) {
+    if (!noiseTiles.length) for (let n = 0; n < 4; n++) {
+      const c = document.createElement('canvas'); c.width = c.height = 192;
+      const x = c.getContext('2d'), im = x.createImageData(192, 192), a = im.data;
+      for (let q = 0; q < a.length; q += 4) { const v = (Math.random() * 255) | 0; a[q] = a[q + 1] = a[q + 2] = v; a[q + 3] = 255; }
+      x.putImageData(im, 0, 0); noiseTiles.push(c);
+    }
+    return noiseTiles[i % noiseTiles.length];
+  }
+  let grainN = 0;
+  function edFx(g, w, h, E, flash) { // фильтр, виньетка, зерно и вспышка поверх уже нарисованного кадра
+    g.save();
+    const fill = (op, col, a) => { g.globalCompositeOperation = op; g.globalAlpha = a; g.fillStyle = col; g.fillRect(0, 0, w, h); };
+    switch (E.filter) {
+      case 'bw': fill('saturation', '#808080', 1); break;
+      case 'warm': fill('soft-light', '#ff8a2a', .55); break;
+      case 'cool': fill('soft-light', '#2a7bff', .55); break;
+      case 'moody': fill('saturation', '#808080', .45); fill('multiply', '#8fa0b8', .55); break;
+      case 'vivid': try { g.globalCompositeOperation = 'overlay'; g.globalAlpha = .45; g.drawImage(g.canvas, 0, 0); } catch (e) {} break;
+    }
+    if (E.vignette) {
+      const r = Math.hypot(w, h) / 2, gr = g.createRadialGradient(w / 2, h / 2, r * .35, w / 2, h / 2, r);
+      gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.65)');
+      g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    }
+    if (E.grain) {
+      const sc = Math.max(1, Math.round(h / 540)), ox = Math.random() * 192 * sc, oy = Math.random() * 192 * sc;
+      g.globalCompositeOperation = 'overlay'; g.globalAlpha = .16; g.translate(-ox, -oy); g.scale(sc, sc);
+      g.fillStyle = g.createPattern(noiseTile(grainN++), 'repeat'); g.fillRect(0, 0, (w + 192 * sc) / sc, (h + 192 * sc) / sc);
+      g.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    if (E.flash && flash > 0) fill('source-over', '#ffffff', Math.min(.5, flash * flash * .5));
+    g.restore();
+  }
+  function edTextDraw(g, w, h, E, t) { // надпись поверх эдита: шрифт, цвет, размер и положение берём из настроек
+    const txt = String(E.text || '').trim(); if (!txt) return;
+    const fs = Math.round(h * E.textSize / 100), st = FSTYLE[E.textFont] || {}, sx = st.sx || 1;
+    g.save();
+    g.globalAlpha = Math.max(0, Math.min(1, t / .4)); // надпись плавно появляется в начале
+    g.font = (FONTS[E.textFont] || FONTS.old).replace('{s}', fs); g.fillStyle = E.textColor; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fontKerning = 'normal';
+    let lines = wrap(g, txt, w * .84 / sx); if (st.noBlank) lines = lines.filter(Boolean);
+    const lh = fs * (st.lh || 1.35), half = (lines.length - 1) * lh / 2;
+    const cy = E.textPos === 'top' ? h * .12 + half : E.textPos === 'bottom' ? h * .88 - half : h * (.5 + (st.dy || 0));
+    g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = fs * .18; // лёгкая тень, чтобы буквы читались на светлых кадрах
+    g.scale(sx, 1);
+    if (st.round) { g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = fs * st.round; g.strokeStyle = E.textColor; }
+    lines.forEach((l, i) => { const x = w / 2 / sx, y = cy - half + i * lh; g.fillText(l, x, y); if (st.round) g.strokeText(l, x, y); });
+    g.restore();
+  }
   const evenN = n => Math.max(2, Math.round(n / 2) * 2);
   const FILTERS = ['none', 'bw', 'warm', 'cool', 'moody', 'vivid'], TEMPOS = ['fast', 'mid', 'slow', 'mix'], POS = ['top', 'center', 'bottom'], QS = ['fast', 'high', 'max'];
   const ED_DEF = { music: 1, also: false, res: 'v:0', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
@@ -294,7 +372,7 @@
     if (+j.len) E.len = Math.max(3, Math.min(120, Math.round(+j.len)));
     if (j.start != null && isFinite(+j.start) && +j.start >= 0) E.start = Math.round(+j.start * 10) / 10;
     if (TEMPOS.includes(j.tempo)) E.tempo = j.tempo;
-    if (typeof j.text === 'string') E.text = j.text.slice(0, 200);
+    if (typeof j.text === 'string') E.text = j.text.replace(/\\n/g, '\n').slice(0, 200);
     if (POS.includes(j.textPos)) E.textPos = j.textPos;
     if (/^#[0-9a-f]{6}$/i.test(j.textColor)) E.textColor = j.textColor;
     if (typeof j.textFont === 'string' && has(FONTS, j.textFont)) E.textFont = j.textFont;
@@ -408,7 +486,7 @@
     return fl.map((f, i) => ({ file: f, url: URL.createObjectURL(f), dur: metas[i].dur, name: f.name, w: metas[i].w, h: metas[i].h }));
   }
   async function edBuild(E, items, say) {
-    const pool = [];
+    const pool = []; let rec = null, node = null; // запись и звук: чтобы остановить их, если сборка упадёт
     try {
       const mi = Math.min(E.music - 1, items.length - 1), music = items[mi];
       initAudio(); if (ctx.state !== 'running') await ctx.resume();
@@ -444,10 +522,10 @@
       const stopped = new Promise(r => mr.onstop = r);
       const seek = (v, t) => new Promise(res => { const f = () => { v.removeEventListener('seeked', f); res(); }; v.addEventListener('seeked', f); v.currentTime = t; setTimeout(f, 1500); });
       await seek(pool[segs[0].k].v, segs[0].off); g.fillStyle = '#000'; g.fillRect(0, 0, w, h); cover(pool[segs[0].k].v, 1);
-      mr.start(1000); src.start(0, start, len);
+      rec = mr; node = src; mr.start(1000); src.start(0, start, len);
       const af = Math.min(d.afade || 0, len), now = ctx.currentTime; fadeG.gain.setValueAtTime(1, now);
       if (af > 0) { fadeG.gain.setValueAtTime(1, now + len - af); fadeG.gain.linearRampToValueAtTime(0, now + len); }
-      let cur = -1, lastSay = -1, lost = 0, hidAt = 0; const t0 = performance.now();
+      let cur = -1, lastSay = -1, lost = 0, hidAt = 0, prep = 0; const t0 = performance.now(); // prep: какой клип уже перемотан заранее
       const onVis = async () => { // свернул сайт (TikTok, блокировка): запись и звук замирают, при возврате идут дальше с того же места
         const cv = () => pool[segs[Math.max(cur, 0)].k].v;
         if (document.hidden) { if (!hidAt) hidAt = performance.now(); try { if (mr.state === 'recording') mr.pause(); } catch (e) {} try { cv().pause(); } catch (e) {} try { await ctx.suspend(); } catch (e) {} }
@@ -460,8 +538,10 @@
         while (i < segs.length - 1 && t >= segs[i].t1) i++;
         if (i !== cur) {
           if (cur >= 0) pool[segs[cur].k].v.pause();
-          pool[segs[i].k].v.play().catch(() => {}); cur = i;
-          if (i + 1 < segs.length) { const nv = pool[segs[i + 1].k].v; nv.pause(); nv.currentTime = segs[i + 1].off; } // следующий клип готовим заранее
+          const cvv = pool[segs[i].k].v;
+          if (prep !== i) { try { cvv.currentTime = segs[i].off; } catch (e) {} } // из-за лага клип не успели перемотать заранее: делаем это сейчас
+          cvv.play().catch(() => {}); cur = i;
+          if (i + 1 < segs.length) { const nv = pool[segs[i + 1].k].v; nv.pause(); nv.currentTime = segs[i + 1].off; prep = i + 1; } // следующий клип готовим заранее
         }
         const dt = t - segs[cur].t0, v = pool[segs[cur].k].v;
         if (!v.seeking && v.readyState >= 2) cover(v, E.zoom ? 1 + .08 * Math.pow(Math.max(0, 1 - dt / .22), 2) : 1);
@@ -472,7 +552,10 @@
       if (mr.state === 'paused') try { mr.resume(); } catch (e) {}
       mr.stop(); await stopped; try { src.stop(); } catch (e) {} fadeG.disconnect();
       return { blob: new Blob(chunks, { type: type.split(';')[0] }), type };
-    } finally { pool.forEach(p => { p.v.pause(); p.v.remove(); }); }
+    } finally {
+      try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (e) {} try { node && node.stop(); } catch (e) {}
+      pool.forEach(p => { p.v.pause(); p.v.remove(); });
+    }
   }
   // чат lowend AI вызывает это сам: собирает эдит из прикреплённых видео и отдаёт готовый файл. status(текст) показывает ход работы в чате
   window.studioEdit = async (spec, files, status) => {
@@ -484,7 +567,7 @@
       items = await edLoad(files, say);
       const r = await edBuild(edSpec(spec || {}, items), items, say);
       return { blob: r.blob, ext: r.type.startsWith('video/mp4') ? 'mp4' : 'webm', name: 'lowend-edit' };
-    } finally { items.forEach(i => URL.revokeObjectURL(i.url)); busy = false; }
+    } catch (e) { console.error('studio edit error:', e); throw new Error(humanErr(e)); } finally { items.forEach(i => URL.revokeObjectURL(i.url)); busy = false; }
   };
   window.studioLang = async () => { if (!root || busy) return; const open = !root.hidden; root.remove(); root = null; if (open) await window.openStudio(); fillPresetsSafe(); };
   const fillPresetsSafe = () => { if (root) fillPresets(); };

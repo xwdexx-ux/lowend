@@ -86,7 +86,7 @@ async function releaseNick(h) { // выход из аккаунта: ник сн
 const hash = t => crypto.createHash('sha256').update(String(t)).digest('hex');
 const keyOk = k => !!OWNER_KEY && typeof k === 'string' && k.length > 0 && crypto.timingSafeEqual(Buffer.from(hash(k)), Buffer.from(hash(OWNER_KEY)));
 
-// ---------- Премиум: 30 дней за 50 Telegram Stars. Доступ к Студии. Хранится по хэшу анонимного токена (аккаунтов нет) ----------
+// ---------- Премиум: 30 дней за 150 Telegram Stars. Доступ к Студии. Хранится по хэшу анонимного токена (аккаунтов нет) ----------
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
 let BOT_USER = String(process.env.BOT_USERNAME || '').replace(/^@/, '');
 const BASE_URL = (process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
