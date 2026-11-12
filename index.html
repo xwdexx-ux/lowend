@@ -1121,19 +1121,26 @@ async function procImage(f) {
 }
 async function procVideo(f) { // видео превращаем в несколько кадров: так его видят и Gemini, и Claude
   const url = URL.createObjectURL(f), v = document.createElement('video');
-  v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+  v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.preload = 'auto';
+  v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none'; // iOS надёжнее грузит видео, которое лежит в странице
+  document.body.appendChild(v); v.src = url;
+  const wait = (ev, ms, stage) => new Promise((res, rej) => { const ok = () => { clearTimeout(to); v.removeEventListener(ev, ok); res(); }; const to = setTimeout(() => { v.removeEventListener(ev, ok); rej(new Error('video:' + stage)); }, ms); v.addEventListener(ev, ok); });
   try {
-    await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('video')), 15000); v.onloadedmetadata = () => { clearTimeout(to); res(); }; v.onerror = () => { clearTimeout(to); rej(new Error('video')); }; });
+    await Promise.race([wait('loadedmetadata', 20000, 'meta'), new Promise((_, rej) => v.addEventListener('error', () => rej(new Error('video:decode')), { once: true }))]);
+    try { await Promise.race([v.play(), new Promise(r => setTimeout(r, 4000))]); v.pause(); } catch (e) {} // без запуска iOS не подгружает данные для перемотки
+    if (!v.videoWidth) throw new Error('video:size');
     const d = isFinite(v.duration) && v.duration > 0 ? v.duration : 1, n = d < 2 ? 1 : Math.min(6, Math.max(2, Math.ceil(d / 4))), imgs = []; let th = '';
     for (let i = 0; i < n; i++) {
       const at = Math.max(0, Math.min(d - .05, (i + .5) / n * d));
-      if (Math.abs(v.currentTime - at) > .01) await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('video')), 8000); v.onseeked = () => { clearTimeout(to); res(); }; v.currentTime = at; });
-      if (!v.videoWidth) throw new Error('video');
-      imgs.push(jpg(scaled(v, v.videoWidth, v.videoHeight, 896), .75).split(',')[1]);
-      if (!i) th = jpg(scaled(v, v.videoWidth, v.videoHeight, 96), .6);
+      try {
+        if (Math.abs(v.currentTime - at) > .01) { const sk = wait('seeked', 6000, 'seek'); v.currentTime = at; await sk; }
+        imgs.push(jpg(scaled(v, v.videoWidth, v.videoHeight, 896), .75).split(',')[1]);
+        if (!th) th = jpg(scaled(v, v.videoWidth, v.videoHeight, 96), .6);
+      } catch (e) { /* один кадр не достали: пробуем остальные */ }
     }
-    return { k: 'video', n: f.name || 'video', th, imgs, file: f, meta: { w: v.videoWidth, h: v.videoHeight, dur: d }, note: 'video "' + (f.name || 'video') + '", ' + fmt(d) + ', ' + imgs.length + ' frames in order, no sound' };
-  } finally { URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (e) {} }
+    if (!imgs.length) { try { imgs.push(jpg(scaled(v, v.videoWidth, v.videoHeight, 896), .75).split(',')[1]); th = jpg(scaled(v, v.videoWidth, v.videoHeight, 96), .6); } catch (e) {} }
+    return { k: 'video', n: f.name || 'video', th, imgs, file: f, meta: { w: v.videoWidth, h: v.videoHeight, dur: d }, note: 'video "' + (f.name || 'video') + '", ' + fmt(d) + ', ' + (imgs.length ? imgs.length + ' frames in order, no sound' : 'frames unavailable, no sound') };
+  } finally { v.pause(); v.remove(); URL.revokeObjectURL(url); v.removeAttribute('src'); try { v.load(); } catch (e) {} }
 }
 const readB64 = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(f); });
 async function procPdf(f) {
@@ -1150,7 +1157,7 @@ function attEl(a, removable) {
     const i = document.createElement('img'); i.src = a.th; i.alt = ''; d.appendChild(i);
     if (a.k === 'video') { const b = document.createElement('span'); b.className = 'vb'; b.textContent = '▶'; d.appendChild(b); }
   } else {
-    const b = document.createElement('b'); b.textContent = a.load ? '…' : a.k === 'pdf' ? 'PDF' : 'TXT';
+    const b = document.createElement('b'); b.textContent = a.load ? '…' : a.k === 'pdf' ? 'PDF' : a.k === 'video' ? 'VID' : 'TXT';
     const n = document.createElement('span'); n.className = 'n'; n.textContent = a.n || '';
     d.append(b, n);
   }
@@ -1170,7 +1177,7 @@ async function addFiles(list) {
       let a;
       if (isImgF(f)) a = await procImage(f); else if (isVidF(f)) a = await procVideo(f); else if (isPdfF(f)) a = await procPdf(f); else if (isTxtF(f)) a = await procText(f); else throw new Error('type');
       Object.assign(ph, a, { load: false });
-    } catch (e) { atts = atts.filter(x => x !== ph); aiWarn(e.message === 'big' ? t('aiAttBig') : t('aiAttFail')); }
+    } catch (e) { atts = atts.filter(x => x !== ph); aiWarn(e.message === 'big' ? t('aiAttBig') : t('aiAttFail') + (/^video:/.test(e.message) ? ' (' + e.message.slice(6) + ')' : '')); }
     attBusy--; renderAtts(); updSend();
   }
 }
