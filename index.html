@@ -190,6 +190,12 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .msg.u{align-self:flex-end;max-width:85%;background:var(--glass);border:1px solid var(--edge);padding:10px 14px;border-radius:18px}
 .msg.a{align-self:flex-start;max-width:100%;line-height:1.6}
 .msg.a.err{color:var(--muted)}
+.ai-acts{display:flex;align-items:center;gap:2px;margin-top:10px;white-space:normal;margin-left:-8px}
+.ai-acts button{background:none;border:0;padding:8px;border-radius:10px;color:var(--muted);cursor:pointer;display:flex;-webkit-tap-highlight-color:transparent}
+.ai-acts button:active{background:var(--glass)}
+.ai-acts button.on{color:var(--text,#fff)}
+.ai-acts svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ai-disc{color:var(--muted);font-size:13px;margin-top:6px;white-space:normal}
 .ai-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .ai-tag{border:1px solid var(--edge);border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted);white-space:normal}
 button.ai-tag{margin:0;background:var(--a);color:var(--onA);border-color:transparent;font-weight:600;cursor:pointer}
@@ -448,7 +454,7 @@ const LANG = {
 ru: {
   pick:'Выбери трек', pickSub:'Загрузи песню ниже', len:'Длина: ', nosound:'Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.',
   searchH:'Поиск треков', searchPh:'Название или исполнитель', find:'Найти', searchHint:'Находит 30-секундные превью. Полный трек загрузи сам ниже.',
-  aiH:'lowend AI', aiPh:'Напиши lowend AI', aiHello:'lowend AI', aiSub:'Опиши звук словами или просто пообщайся', aiS1:'Сделай грустный slowed с реверберацией', aiS2:'Добавь мощный бас, но чтобы слышно было на телефоне', aiS3:'Привет! Что ты умеешь?', aiErr:'ИИ недоступен.', aiNew:'Новый чат', aiPlayer:'Плеер', aiOpen:'К плееру', aiNote:'lowend AI может ошибаться.', aiVidBusy:'Эдит уже собирается. Подожди, пока он закончится, и напиши ещё раз.', aiVidNoStudio:'Не получилось загрузить Студию (нужен Premium и интернет). Сборка не запущена.', aiVidGone:'Файл этого эдита уже не хранится на устройстве. Попроси собрать его заново.', aiVidRestoring:'Достаю видео…', aiTkLong:'Всё ещё работаю, это занимает чуть дольше обычного…', aiVidText:'Видео с текстом', aiVidEdit:'Эдит из видео', aiTkVid:'Смотрю видео…|Ищу бит и ритм…|Продумываю нарезку…|Настраиваю эдит…', aiTkFind:'Ищу подходящий трек…|Сверяю результаты…', aiTkSound:'Подбираю параметры звука…|Настраиваю бас и пространство…|Проверяю баланс…', aiTkChat:'Размышляю…|Формулирую ответ…', aiVidLoad:'Готовлю эдит…', aiVidWait:'Эдит готов к сборке. Вернись на сайт, и я сразу начну', aiVidDone:'Эдит готов.', aiVidSave:'Сохранить в Фото', aiVidDl:'Скачать файл', aiVidFail:'Не получилось собрать эдит.', aiBug:'Это ошибка внутри сайта, а не в твоих файлах.', aiVidNone:'Сначала прикрепи видео, из которых собрать эдит.', aiMenu:'Меню', aiChats:'Чаты', aiNoChats:'Пока нет чатов', aiDelQ:'Удалить этот чат?', aiDel:'Удалить', aiAttPhoto:'Фото и видео', aiAttCam:'Камера', aiAttFile:'Файл (PDF, текст)', aiAttAdd:'Прикрепить', aiLook:'Посмотри вложение', aiAttMax:'Максимум 6 вложений.', aiAttBig:'Файл слишком большой.', aiAttFail:'Не получилось открыть файл.',
+  aiH:'lowend AI', aiPh:'Напиши lowend AI', aiHello:'lowend AI', aiSub:'Опиши звук словами или просто пообщайся', aiS1:'Сделай грустный slowed с реверберацией', aiS2:'Добавь мощный бас, но чтобы слышно было на телефоне', aiS3:'Привет! Что ты умеешь?', aiErr:'ИИ недоступен.', aiNew:'Новый чат', aiPlayer:'Плеер', aiOpen:'К плееру', aiNote:'lowend AI может ошибаться.', aiDisc:'lowend — это ИИ, который может ошибаться.', aiVidBusy:'Эдит уже собирается. Подожди, пока он закончится, и напиши ещё раз.', aiVidNoStudio:'Не получилось загрузить Студию (нужен Premium и интернет). Сборка не запущена.', aiVidGone:'Файл этого эдита уже не хранится на устройстве. Попроси собрать его заново.', aiVidRestoring:'Достаю видео…', aiTkLong:'Всё ещё работаю, это занимает чуть дольше обычного…', aiVidText:'Видео с текстом', aiVidEdit:'Эдит из видео', aiTkVid:'Смотрю видео…|Ищу бит и ритм…|Продумываю нарезку…|Настраиваю эдит…', aiTkFind:'Ищу подходящий трек…|Сверяю результаты…', aiTkSound:'Подбираю параметры звука…|Настраиваю бас и пространство…|Проверяю баланс…', aiTkChat:'Размышляю…|Формулирую ответ…', aiVidLoad:'Готовлю эдит…', aiVidWait:'Эдит готов к сборке. Вернись на сайт, и я сразу начну', aiVidDone:'Эдит готов.', aiVidSave:'Сохранить в Фото', aiVidDl:'Скачать файл', aiVidFail:'Не получилось собрать эдит.', aiBug:'Это ошибка внутри сайта, а не в твоих файлах.', aiVidNone:'Сначала прикрепи видео, из которых собрать эдит.', aiMenu:'Меню', aiChats:'Чаты', aiNoChats:'Пока нет чатов', aiDelQ:'Удалить этот чат?', aiDel:'Удалить', aiAttPhoto:'Фото и видео', aiAttCam:'Камера', aiAttFile:'Файл (PDF, текст)', aiAttAdd:'Прикрепить', aiLook:'Посмотри вложение', aiAttMax:'Максимум 6 вложений.', aiAttBig:'Файл слишком большой.', aiAttFail:'Не получилось открыть файл.',
   h1:'1. Трек', drop:'Нажми и выбери песню (mp3, m4a, wav)', h2:'2. Звук', chipLoud:'Громче', chipEcho:'Эхо', chipWater:'Под водой', chipReset:'Сбросить',
   lSub:'Саб-бас', lDist:'Искажение', chipSub:'Саб-бас', chipDist:'Искажение', chipBBS:'Бас + ускоренный', chipSR:'Замедленный + реверб', chipNC:'Найткор',
   lSpeed:'Скорость', lBass:'Бас', lReverb:'Реверб', lPan:'8D панорама', lVol:'Громкость', lTreble:'Высокие', lEcho:'Эхо', lMuffle:'Под водой',
@@ -486,7 +492,7 @@ ru: {
 en: {
   pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
   searchH:'Track search', searchPh:'Title or artist', find:'Search', searchHint:'Finds 30-second previews. Upload the full track yourself below.',
-  aiH:'lowend AI', aiPh:'Message lowend AI', aiHello:'lowend AI', aiSub:'Describe the sound or just chat', aiS1:'Make a sad slowed + reverb version', aiS2:'Add strong bass that is audible on a phone', aiS3:'Hi! What can you do?', aiErr:'AI is unavailable.', aiNew:'New chat', aiPlayer:'Player', aiOpen:'Open player', aiNote:'lowend AI can make mistakes.', aiVidBusy:'An edit is already being built. Wait for it to finish, then ask again.', aiVidNoStudio:'Could not load the Studio (Premium and a connection are required). The build was not started.', aiVidGone:'This edit file is no longer stored on this device. Ask me to build it again.', aiVidRestoring:'Loading the video…', aiTkLong:'Still working, this is taking a bit longer than usual…', aiVidText:'Text video', aiVidEdit:'Video edit', aiTkVid:'Looking at the video…|Finding the beat and rhythm…|Planning the cuts…|Setting up the edit…', aiTkFind:'Searching for a track…|Checking the results…', aiTkSound:'Choosing the sound settings…|Tuning the bass and space…|Checking the balance…', aiTkChat:'Thinking…|Putting the answer together…', aiVidLoad:'Preparing the edit…', aiVidWait:'The edit is ready to build. Come back to the site and I will start right away', aiVidDone:'Your edit is ready.', aiVidSave:'Save to Photos', aiVidDl:'Download file', aiVidFail:'Could not build the edit.', aiBug:'This is a bug inside the site, not a problem with your files.', aiVidNone:'Attach the videos to build the edit from first.', aiMenu:'Menu', aiChats:'Chats', aiNoChats:'No chats yet', aiDelQ:'Delete this chat?', aiDel:'Delete', aiAttPhoto:'Photos & videos', aiAttCam:'Camera', aiAttFile:'File (PDF, text)', aiAttAdd:'Attach', aiLook:'Take a look at the attachment', aiAttMax:'Up to 6 attachments.', aiAttBig:'File is too large.', aiAttFail:'Could not open the file.',
+  aiH:'lowend AI', aiPh:'Message lowend AI', aiHello:'lowend AI', aiSub:'Describe the sound or just chat', aiS1:'Make a sad slowed + reverb version', aiS2:'Add strong bass that is audible on a phone', aiS3:'Hi! What can you do?', aiErr:'AI is unavailable.', aiNew:'New chat', aiPlayer:'Player', aiOpen:'Open player', aiNote:'lowend AI can make mistakes.', aiDisc:'lowend is AI and can make mistakes.', aiVidBusy:'An edit is already being built. Wait for it to finish, then ask again.', aiVidNoStudio:'Could not load the Studio (Premium and a connection are required). The build was not started.', aiVidGone:'This edit file is no longer stored on this device. Ask me to build it again.', aiVidRestoring:'Loading the video…', aiTkLong:'Still working, this is taking a bit longer than usual…', aiVidText:'Text video', aiVidEdit:'Video edit', aiTkVid:'Looking at the video…|Finding the beat and rhythm…|Planning the cuts…|Setting up the edit…', aiTkFind:'Searching for a track…|Checking the results…', aiTkSound:'Choosing the sound settings…|Tuning the bass and space…|Checking the balance…', aiTkChat:'Thinking…|Putting the answer together…', aiVidLoad:'Preparing the edit…', aiVidWait:'The edit is ready to build. Come back to the site and I will start right away', aiVidDone:'Your edit is ready.', aiVidSave:'Save to Photos', aiVidDl:'Download file', aiVidFail:'Could not build the edit.', aiBug:'This is a bug inside the site, not a problem with your files.', aiVidNone:'Attach the videos to build the edit from first.', aiMenu:'Menu', aiChats:'Chats', aiNoChats:'No chats yet', aiDelQ:'Delete this chat?', aiDel:'Delete', aiAttPhoto:'Photos & videos', aiAttCam:'Camera', aiAttFile:'File (PDF, text)', aiAttAdd:'Attach', aiLook:'Take a look at the attachment', aiAttMax:'Up to 6 attachments.', aiAttBig:'File is too large.', aiAttFail:'Could not open the file.',
   h1:'1. Track', drop:'Tap and choose a song (mp3, m4a, wav)', h2:'2. Sound', chipLoud:'Louder', chipEcho:'Echo', chipWater:'Underwater', chipReset:'Reset',
   lSub:'Sub bass', lDist:'Distortion', chipSub:'Sub bass', chipDist:'Distortion', chipBBS:'Bass boosted + sped up', chipSR:'Slowed + reverb', chipNC:'Nightcore',
   lSpeed:'Speed', lBass:'Bass', lReverb:'Reverb', lPan:'8D pan', lVol:'Volume', lTreble:'Treble', lEcho:'Echo', lMuffle:'Underwater',
@@ -1068,15 +1074,59 @@ function vidEl(url) {
   const a = document.createElement('a'); a.href = url; a.download = v.name + '.' + v.ext; a.className = 'ai-tag'; a.style.textDecoration = 'none'; a.textContent = t('aiVidDl'); row.appendChild(a);
   w.appendChild(row); return w;
 }
+const ACT_ICONS = {
+  copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>',
+  ok: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  share: '<svg viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>',
+  speak: '<svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9.5a4 4 0 0 1 0 5M18 7a7.5 7.5 0 0 1 0 10"/></svg>',
+  stop: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>',
+  up: '<svg viewBox="0 0 24 24"><path d="M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 2 2v3h5.5a2 2 0 0 1 2 2.3l-1 6.5A2 2 0 0 1 17.5 20H7"/></svg>',
+  down: '<svg viewBox="0 0 24 24"><path d="M17 13V4h3v9zM17 13l-4 7a2 2 0 0 1-2-2v-3H5.5a2 2 0 0 1-2-2.3l1-6.5A2 2 0 0 1 6.5 4H17"/></svg>',
+  redo: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4.5h-4.5"/></svg>'
+};
+function refreshActs() { // подпись «может ошибаться» и «повторить» только у последнего ответа ИИ
+  const all = [...document.querySelectorAll('#aiCol .ai-acts')].filter(a => !a.parentNode.hidden), last = all[all.length - 1];
+  document.querySelectorAll('#aiCol .ai-disc').forEach(x => x.style.display = x.parentNode.querySelector('.ai-acts') === last ? '' : 'none');
+  document.querySelectorAll('#aiCol .ai-acts .rg').forEach(x => x.style.display = x.parentNode === last ? '' : 'none');
+}
+function actsEl(m) {
+  const w = document.createElement('div'), f = document.createElement('div'); w.className = 'ai-acts'; f.className = 'ai-disc'; f.textContent = t('aiDisc');
+  const mk = (ic, label, fn, cls) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = ACT_ICONS[ic]; b.setAttribute('aria-label', label); if (cls) b.className = cls; b.onclick = () => fn(b); w.appendChild(b); return b; };
+  const flash = (b, ic) => { b.innerHTML = ACT_ICONS.ok; setTimeout(() => { b.innerHTML = ACT_ICONS[ic]; }, 1500); };
+  const copyText = async x => { try { await navigator.clipboard.writeText(x); return true; } catch (e) { const a = document.createElement('textarea'); a.value = x; a.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(a); a.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {} a.remove(); return ok; } };
+  mk('copy', 'Copy', async b => { if (await copyText(m.text)) flash(b, 'copy'); });
+  mk('share', 'Share', async b => { try { if (navigator.share) await navigator.share({ text: m.text }); else if (await copyText(m.text)) flash(b, 'share'); } catch (e) {} });
+  let speaking = false;
+  mk('speak', 'Read aloud', b => {
+    if (!('speechSynthesis' in window)) return;
+    if (speaking) { speechSynthesis.cancel(); return; }
+    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(m.text); u.lang = /[а-яё]/i.test(m.text) ? 'ru-RU' : 'en-US';
+    const end = () => { speaking = false; b.innerHTML = ACT_ICONS.speak; }; u.onend = end; u.onerror = end;
+    speaking = true; b.innerHTML = ACT_ICONS.stop; speechSynthesis.speak(u);
+  });
+  const up = mk('up', 'Good answer', () => vote('up')), down = mk('down', 'Bad answer', () => vote('down'));
+  const paint = () => { up.classList.toggle('on', m.fb === 'up'); down.classList.toggle('on', m.fb === 'down'); };
+  function vote(v) { m.fb = m.fb === v ? '' : v; paint(); const th = cur; if (th && th.msgs.includes(m)) saveThread(th); }
+  paint();
+  mk('redo', 'Regenerate', () => {
+    const th = cur, i = th.msgs.indexOf(m), u = th.msgs[i - 1];
+    if (aiBusy || i !== th.msgs.length - 1 || !u || u.role !== 'user' || u.atts || !u.text) return;
+    th.msgs.splice(i - 1, 2); saveThread(th); renderChat(); aiSend(u.text);
+  }, 'rg');
+  const box = document.createElement('div'); box.append(w, f);
+  return { acts: w, box };
+}
 function msgEl(m, animate) {
   const d = document.createElement('div'); d.className = 'msg ' + (m.role === 'user' ? 'u' : 'a') + (m.err ? ' err' : '');
   const tx = document.createElement('span'); d.appendChild(tx);
+  let actsBox = null;
+  if (m.role !== 'user' && !m.err && !m.vid && !m.vidId && m.text) { actsBox = actsEl(m).box; if (animate) actsBox.hidden = true; }
   if (m.atts && m.atts.length) { const w = document.createElement('div'); w.className = 'ai-thumbs'; if (!m.text) w.style.marginBottom = '0'; m.atts.forEach(a => w.appendChild(attEl(a, false))); d.insertBefore(w, tx); }
   if (m.role === 'user' || !animate) tx.textContent = m.text;
   else { // печатается постепенно, как ответ в чате
     const full = m.text, step = Math.max(2, Math.ceil(full.length / 40)); let n = 0;
-    const tick = () => { n = Math.min(full.length, n + step); tx.textContent = full.slice(0, n); toBottom(); if (n < full.length) setTimeout(tick, 12); };
-    tick();
+    const tick = () => { n = Math.min(full.length, n + step); tx.textContent = full.slice(0, n); toBottom(); if (n < full.length) setTimeout(tick, 12); else if (actsBox) { actsBox.hidden = false; refreshActs(); toBottom(); } };
+    var pendingTick = tick;
   }
   if (m.vid || m.vidId) {
     if (m.vid && vidLive.has(m.vid)) d.appendChild(vidEl(m.vid));
@@ -1090,6 +1140,8 @@ function msgEl(m, animate) {
     m.tags.forEach(x => { const s = document.createElement('span'); s.className = 'ai-tag'; s.textContent = x; w.appendChild(s); });
     d.appendChild(w);
   }
+  if (actsBox) d.appendChild(actsBox);
+  if (typeof pendingTick === 'function') pendingTick();
   return d;
 }
 function renderChat() {
@@ -1102,7 +1154,7 @@ function renderChat() {
     col.appendChild(e);
   } else cur.msgs.forEach(m => col.appendChild(msgEl(m, false)));
   if (buildBox && buildBox.th === cur) col.appendChild(buildBox.el);
-  toBottom(true);
+  refreshActs(); toBottom(true);
 }
 (() => { // поле ввода — contenteditable: так iOS не рисует серую панель со стрелками и галочкой над клавиатурой
   const el = $('aiIn'); if (el.contentEditable !== 'plaintext-only') el.contentEditable = 'true';

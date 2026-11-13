@@ -251,6 +251,7 @@ const aiHits = new Map();
 const goodBy = { free: '', pro: '' };
 const deadUntil = new Map(); // модель -> до какого времени её пропускаем (404: такой модели нет, 429/503: перегружена), чтобы не тратить на неё запрос каждый раз
 const noThink = new Set();   // модели, которые не принимают thinkingConfig
+const noThinkOnce = new Set(); // модели, где последний ответ был пустым: следующая попытка без размышления
 // «Размышление» ИИ ограничено по токенам: немного думает, но не долго, как в Claude. Меняется переменными AI_THINK_FREE / AI_THINK_PRO (0 = совсем без размышления)
 const THINK_FREE = Number.isFinite(+process.env.AI_THINK_FREE) && process.env.AI_THINK_FREE !== undefined && process.env.AI_THINK_FREE !== '' ? +process.env.AI_THINK_FREE : 512;
 const THINK_PRO = Number.isFinite(+process.env.AI_THINK_PRO) && process.env.AI_THINK_PRO !== undefined && process.env.AI_THINK_PRO !== '' ? +process.env.AI_THINK_PRO : 1024;
@@ -264,7 +265,7 @@ async function geminiText(key, systemText, contents, pro, long, maxTok, thinkOve
   outer: for (const model of models) {
     const isPro = pro && proOnly.includes(model) && !flash.includes(model);
     for (let attempt = 0; attempt < 2; attempt++) {
-      const think = !noThink.has(model), budget = thinkOverride !== undefined ? thinkOverride : (isPro ? THINK_PRO : THINK_FREE); // ограниченный бюджет размышления: ответ остаётся быстрым
+      const think = !noThink.has(model) && !noThinkOnce.delete(model), budget = thinkOverride !== undefined ? thinkOverride : (isPro ? THINK_PRO : THINK_FREE); // ограниченный бюджет размышления: ответ остаётся быстрым
       const gen = { responseMimeType: 'application/json', maxOutputTokens: maxTok || (think ? budget + 1500 : 6000) };
       if (think) gen.thinkingConfig = { thinkingBudget: budget };
       try {
@@ -273,12 +274,19 @@ async function geminiText(key, systemText, contents, pro, long, maxTok, thinkOve
           body: JSON.stringify({ systemInstruction: { parts: [{ text: systemText }] }, contents, generationConfig: gen })
         });
         const j = await r.json().catch(() => ({}));
-        if (r.ok) { goodBy[isPro ? 'pro' : 'free'] = model; return ((j.candidates || [])[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join(''); }
+        if (r.ok) {
+          const txt = ((j.candidates || [])[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
+          if (txt.trim()) { goodBy[isPro ? 'pro' : 'free'] = model; return txt; }
+          // пустой ответ (размышление съело лимит токенов или сработал фильтр): повторяем без размышления, потом пробуем следующую модель
+          last = new Error('Gemini empty (' + model + '): ' + String((j.candidates || [])[0]?.finishReason || (j.promptFeedback || {}).blockReason || '?'));
+          if (think && attempt === 0) { noThinkOnce.add(model); continue; }
+          break;
+        }
         last = new Error('Gemini ' + r.status + ' (' + model + '): ' + JSON.stringify(j).slice(0, 300));
         if (r.status === 400 && think && /think/i.test(JSON.stringify(j))) { noThink.add(model); continue; } // модель не принимает thinkingConfig: повторяем без него
         if (model === goodBy.free) goodBy.free = ''; if (model === goodBy.pro) goodBy.pro = '';
-        if ([404, 429, 503].includes(r.status)) deadUntil.set(model, Date.now() + (r.status === 404 ? 30 * 60000 : r.status === 429 ? 60000 : 20000));
-        if (![404, 429, 503].includes(r.status) && !isPro) break outer; // 400/403 на обычной модели: ключ или запрос, другая не поможет. Pro-модель просто пропускаем
+        if ([404, 429, 500, 502, 503, 504].includes(r.status)) deadUntil.set(model, Date.now() + (r.status === 404 ? 30 * 60000 : r.status === 429 ? 60000 : 20000));
+        if ([401, 403].includes(r.status)) break outer; // проблема с ключом: другая модель не поможет. Остальные ошибки (400, 500 и т.д.): пробуем следующую модель
         break;
       } catch (e) { // таймаут или сеть: пробуем следующую
         last = new Error('Gemini (' + model + '): ' + e.message);
@@ -450,7 +458,12 @@ function soundAI(req, res) {
       const parseAI = txt => {
         let o; const clean = txt.replace(/```json|```/g, '').trim();
         try { o = JSON.parse(clean); } catch (e) { const m = clean.match(/\{[\s\S]*\}/); try { o = m ? JSON.parse(m[0]) : null; } catch (e2) { o = null; } }
+        if (Array.isArray(o)) o = o.find(x => x && typeof x === 'object') || null;
         if (!o || typeof o !== 'object') o = { say: clean };
+        if (typeof o.say !== 'string') {
+          const alt = o.say != null ? o.say : (o.answer ?? o.text ?? o.reply ?? o.response ?? o.message ?? o.content);
+          if (alt != null && typeof alt !== 'object') o.say = String(alt); else if (o.say != null) o.say = JSON.stringify(o.say); else delete o.say;
+        }
         return o;
       };
       let text = await ask(msgs), o = parseAI(text);
@@ -469,6 +482,7 @@ function soundAI(req, res) {
       }
       const keep = {}; for (const k of ['say', 'speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle', 'sub', 'dist', 'search']) if (o[k] !== undefined) keep[k] = o[k];
       if (studioOk && o.video && typeof o.video === 'object' && o.video.type === 'edit' && JSON.stringify(o.video).length < 3000) { keep.video = fixVideoText(o.video, userSaid, userAll); if (/символ|надпис/i.test(keep.say || '')) keep.say = String(keep.say).replace(/«[^»]*»/g, keep.video.text ? '«' + keep.video.text.replace(/\n/g, ' ') + '»' : ''); }
+      if (!keep.say && Object.keys(keep).length) keep.say = b.lang === 'ru' ? 'Готово.' : 'Done.';
       if (!keep.say) throw new Error('empty reply: ' + text.slice(0, 200));
       out(200, keep);
     } catch (e) { console.log('ai error:', e.message); out(500, { error: 'ИИ не смог обработать запрос. / AI could not process the request.' }); }
