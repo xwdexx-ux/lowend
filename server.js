@@ -365,6 +365,10 @@ function fixVideoText(v, said, all) {
   return o;
 }
 const soundHits = new Map();
+// Очередь: обычные пользователи делят 3 одновременных запроса к ИИ, Pro, админы и владелец идут вне очереди
+const FREE_SLOTS = 3; let freeBusy = 0; const freeQ = [];
+const freeAcquire = () => freeBusy < FREE_SLOTS ? (freeBusy++, Promise.resolve()) : new Promise(r => freeQ.push(r));
+const freeRelease = () => { const n = freeQ.shift(); if (n) n(); else freeBusy--; };
 // Задачи ИИ: ответ считается на сервере и хранится 10 минут. Если телефон ушёл в TikTok и связь оборвалась, сайт заберёт готовый ответ по id
 const aiJobs = new Map(); // id -> { th, st: 'run'|'done', code, body, at }
 setInterval(() => { const now = Date.now(); for (const [k, v] of aiJobs) if (now - v.at > 600000) aiJobs.delete(k); }, 60000).unref();
@@ -440,7 +444,8 @@ function soundAI(req, res) {
         '\nВидео-студия: ' + (studioOk ? 'доступна этому пользователю. ' + VIDEO_SYS + (lastEditS ? ' Последний эдит (lastEdit): ' + lastEditS + '.' : '') + (vids ? ' Видео, которые пользователь прикрепил (по номерам): ' + vids + '.' : ' Видео пока не прикреплены.') : 'недоступна этому пользователю (нужен Premium). Если просят сделать видео или эдит, скажи об этом и не добавляй поле video.');
       const sysFull = sys + (studioOk ? editStateS : '');
       const attachIdx = msgs.length - 1;
-      const ask = async turns => {
+      const ask = async turns => { if (tier !== 'free') return ask0(turns); await freeAcquire(); try { return await ask0(turns); } finally { freeRelease(); } };
+      const ask0 = async turns => {
         if (GKEY) {
           const contents = turns.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] }));
           if (withFiles) contents[attachIdx].parts.push(...att.images.map(x => ({ inlineData: { mimeType: x.mime, data: x.data } })), ...att.pdfs.map(x => ({ inlineData: { mimeType: 'application/pdf', data: x.data } })));
