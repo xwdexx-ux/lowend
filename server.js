@@ -252,9 +252,9 @@ const goodBy = { free: '', pro: '' };
 const deadUntil = new Map(); // модель -> до какого времени её пропускаем (404: такой модели нет, 429/503: перегружена), чтобы не тратить на неё запрос каждый раз
 const noThink = new Set();   // модели, которые не принимают thinkingConfig
 const noThinkOnce = new Set(); // модели, где последний ответ был пустым: следующая попытка без размышления
-// «Размышление» ИИ ограничено по токенам: немного думает, но не долго, как в Claude. Меняется переменными AI_THINK_FREE / AI_THINK_PRO (0 = совсем без размышления)
-const THINK_FREE = Number.isFinite(+process.env.AI_THINK_FREE) && process.env.AI_THINK_FREE !== undefined && process.env.AI_THINK_FREE !== '' ? +process.env.AI_THINK_FREE : 512;
-const THINK_PRO = Number.isFinite(+process.env.AI_THINK_PRO) && process.env.AI_THINK_PRO !== undefined && process.env.AI_THINK_PRO !== '' ? +process.env.AI_THINK_PRO : 1024;
+// «Размышление» ИИ по умолчанию выключено (0): так ответ приходит за 1-3 секунды. Включить можно переменными AI_THINK_FREE / AI_THINK_PRO (например 512)
+const THINK_FREE = Number.isFinite(+process.env.AI_THINK_FREE) && process.env.AI_THINK_FREE !== undefined && process.env.AI_THINK_FREE !== '' ? +process.env.AI_THINK_FREE : 0;
+const THINK_PRO = Number.isFinite(+process.env.AI_THINK_PRO) && process.env.AI_THINK_PRO !== undefined && process.env.AI_THINK_PRO !== '' ? +process.env.AI_THINK_PRO : 0;
 async function geminiText(key, systemText, contents, pro, long, maxTok, thinkOverride) {
   const flash = [goodBy.free, process.env.GEMINI_MODEL, 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
   const proOnly = [goodBy.pro, process.env.GEMINI_PRO_MODEL, 'gemini-3.1-pro-preview'].filter(Boolean);
@@ -444,7 +444,7 @@ function soundAI(req, res) {
         if (GKEY) {
           const contents = turns.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] }));
           if (withFiles) contents[attachIdx].parts.push(...att.images.map(x => ({ inlineData: { mimeType: x.mime, data: x.data } })), ...att.pdfs.map(x => ({ inlineData: { mimeType: 'application/pdf', data: x.data } })));
-          return geminiText(GKEY, sysFull, contents, smart, withFiles);
+          return geminiText(GKEY, sysFull, contents, false, withFiles); // быстрые flash-модели для всех, включая владельца, админов и Pro: Pro-модель Gemini заметно медленнее
         }
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' }, signal: AbortSignal.timeout(withFiles ? 50000 : 30000),
