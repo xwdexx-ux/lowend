@@ -347,8 +347,9 @@
   function edTextDraw(g, w, h, E, t) { // надпись поверх эдита: шрифт, цвет, размер и положение берём из настроек
     const txt = String(E.text || '').replace(/[\uFE0E\uFE0F]/g, '').trim(); if (!txt) return;
     const fs = Math.round(h * E.textSize / 100), st = FSTYLE[E.textFont] || {}, sx = st.sx || 1;
-    g.save();
-    g.globalAlpha = Math.max(0, Math.min(1, t / .4)); // надпись плавно появляется в начале
+    let al = Math.min(1, t / .4); // надпись плавно появляется в начале
+    if (E.textDur > 0) { if (t >= E.textDur) return; al = Math.min(al, E.textFade > 0 ? (E.textDur - t) / E.textFade : 1); } // и плавно гаснет к концу заданного времени
+    g.save(); g.globalAlpha = Math.max(0, Math.min(1, al));
     g.font = (FONTS[E.textFont] || FONTS.old).replace('{s}', fs); g.fillStyle = E.textColor; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fontKerning = 'normal';
     let lines = wrap(g, txt, w * .84 / sx); if (st.noBlank) lines = lines.filter(Boolean);
     const lh = fs * (st.lh || 1.35), half = (lines.length - 1) * lh / 2;
@@ -361,7 +362,7 @@
   }
   const evenN = n => Math.max(2, Math.round(n / 2) * 2);
   const FILTERS = ['none', 'bright', 'bw', 'warm', 'cool', 'moody', 'vivid'], TEMPOS = ['fast', 'mid', 'slow', 'mix'], POS = ['top', 'center', 'bottom'], QS = ['fast', 'high', 'max'];
-  const ED_DEF = { music: 1, also: false, res: 'v:0', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
+  const ED_DEF = { music: 1, also: false, res: 'v:0', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, textDur: 0, textFade: .6, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
   function edSpec(j, items) { // настройки от ИИ -> проверенные настройки эдита
     const E = { ...ED_DEF }, has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
     if (+j.music >= 1 && +j.music <= items.length) E.music = Math.round(+j.music);
@@ -378,7 +379,9 @@
     if (POS.includes(j.textPos)) E.textPos = j.textPos;
     if (/^#[0-9a-f]{6}$/i.test(j.textColor)) E.textColor = j.textColor;
     if (typeof j.textFont === 'string' && has(FONTS, j.textFont)) E.textFont = j.textFont;
-    if (+j.textSize) E.textSize = Math.max(3, Math.min(16, +j.textSize));
+    if (+j.textSize) E.textSize = Math.max(2, Math.min(16, +j.textSize));
+    if (j.textDur != null && isFinite(+j.textDur) && +j.textDur >= 0) E.textDur = Math.min(120, Math.round(+j.textDur * 10) / 10); // сколько секунд надпись видна с начала (0 = весь эдит)
+    if (j.textFade != null && isFinite(+j.textFade) && +j.textFade >= 0) E.textFade = Math.min(5, Math.round(+j.textFade * 10) / 10); // плавное исчезновение, секунды
     if (FILTERS.includes(j.filter)) E.filter = j.filter;
     ['vignette', 'grain', 'flash', 'zoom'].forEach(k => { if (typeof j[k] === 'boolean') E[k] = j[k]; });
     if (+j.fps === 30 || +j.fps === 60) E.fps = +j.fps;
@@ -554,7 +557,7 @@
       })()); } finally { document.removeEventListener('visibilitychange', onVis); try { wl && wl.release(); } catch (e) {} }
       if (mr.state === 'paused') try { mr.resume(); } catch (e) {}
       mr.stop(); await stopped; try { src.stop(); } catch (e) {} fadeG.disconnect();
-      return { blob: new Blob(chunks, { type: type.split(';')[0] }), type };
+      return { blob: new Blob(chunks, { type: type.split(';')[0] }), type, E };
     } finally {
       try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (e) {} try { node && node.stop(); } catch (e) {}
       pool.forEach(p => { p.v.pause(); p.v.remove(); });
@@ -569,7 +572,7 @@
     try {
       items = await edLoad(files, say);
       const r = await edBuild(edSpec(spec || {}, items), items, say);
-      return { blob: r.blob, ext: r.type.startsWith('video/mp4') ? 'mp4' : 'webm', name: 'lowend-edit' };
+      return { blob: r.blob, ext: r.type.startsWith('video/mp4') ? 'mp4' : 'webm', name: 'lowend-edit', spec: r.E };
     } catch (e) { console.error('studio edit error:', e); throw new Error(humanErr(e)); } finally { items.forEach(i => URL.revokeObjectURL(i.url)); busy = false; }
   };
   window.studioLang = async () => { if (!root || busy) return; const open = !root.hidden; root.remove(); root = null; if (open) await window.openStudio(); fillPresetsSafe(); };

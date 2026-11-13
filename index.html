@@ -1125,7 +1125,7 @@ async function aiSend(text) {
   try {
     const hist = th.msgs.slice(-12).map((m, i, arr) => ({ role: m.role, text: (m.text || (m.atts ? t('aiLook') : '')) + (m.atts && i < arr.length - 1 ? ' [attached: ' + m.atts.map(a => a.n).join(', ') + ']' : '') }));
     const jid = jobId();
-    const { ok, j } = await aiCall(JSON.stringify({ messages: hist, current: S, lang, attach, videos: chatVideos.map(v => ({ n: v.n, w: v.w, h: v.h, dur: v.dur })) }), jid);
+    const { ok, j } = await aiCall(JSON.stringify({ messages: hist, current: S, lang, attach, lastEdit: lastEditOut(), videos: chatVideos.map(v => ({ n: v.n, w: v.w, h: v.h, dur: v.dur })) }), jid);
     if (!ok) throw new Error(j.error || t('aiErr'));
     const n = { ...S }, tags = [];
     for (const k in AIR) if (j[k] !== undefined && isFinite(+j[k])) {
@@ -1157,6 +1157,7 @@ $('aiIn').addEventListener('blur', () => setTimeout(fitAI, 100));
 /* ---------- вложения: фото, видео, PDF и текст (как «+» в Claude) ---------- */
 const AT_MAX = 6;
 let atts = [], attBusy = 0, noteT;
+let lastEdit = null; // настройки последнего собранного эдита: «убери то, оставь это» меняют его, а не собирают заново
 const chatVideos = []; // видео, прикреплённые в этой сессии: из них ИИ может собрать эдит в Студии
 const niceErr = (e, fb) => { // свои сообщения показываем как есть, а сырые ошибки кода (ReferenceError и т.п.) объясняем по-человечески
   if (window.studioErr) return window.studioErr(e, fb);
@@ -1477,6 +1478,9 @@ const openStudioFlow = async () => {
   if (!(await loadStudio())) return;
   try { await window.openStudio(); } catch (e) { console.log('studio error:', e); }
 };
+function lastEditOut() { // прошлый эдит для ИИ; разрешение «v:N» превращаем в «same:N+1», как его понимает ИИ
+  if (!lastEdit) return null; const o = { ...lastEdit }, m = /^v:(\d+)$/.exec(o.res || ''); if (m) o.res = 'same:' + (+m[1] + 1); return o;
+}
 async function runChatVideo(spec, th) {
   if (!spec || spec.type !== 'edit') return; // ничего никуда не перекидывает: эдит собирается тут, в чате
   // эдит из клипов собирает сам ИИ прямо в чате: показывает ход работы и выдаёт готовый файл
@@ -1491,6 +1495,7 @@ async function runChatVideo(spec, th) {
     if (document.hidden) await new Promise(r => { const f = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', f); r(); } }; document.addEventListener('visibilitychange', f); }); // запись идёт только на экране: стартует, как только вернёшься
     if (!window.studioEdit) throw new Error(t('aiVidFail') + ' ' + t('aiBug'));
     const r = await window.studioEdit(spec, files, x => { box.set(x); if (cur === th) toBottom(); });
+    if (r.spec) lastEdit = r.spec;
     const url = URL.createObjectURL(r.blob); vidLive.set(url, r);
     box.remove();
     const m = { role: 'assistant', text: t('aiVidDone'), vid: url }; th.msgs.push(m); saveThread(th); show(msgEl(m, false)); ping(m.text);
