@@ -319,7 +319,7 @@
     return noiseTiles[i % noiseTiles.length];
   }
   let grainN = 0;
-  function edFx(g, w, h, E, flash) { // фильтр, виньетка, зерно и вспышка поверх уже нарисованного кадра
+  function edFx(g, w, h, E, flash, pz) { // фильтр, виньетка, зерно и вспышка поверх уже нарисованного кадра
     g.save();
     const fill = (op, col, a) => { g.globalCompositeOperation = op; g.globalAlpha = a; g.fillStyle = col; g.fillRect(0, 0, w, h); };
     switch (E.filter) {
@@ -341,12 +341,22 @@
       g.fillStyle = g.createPattern(noiseTile(grainN++), 'repeat'); g.fillRect(0, 0, (w + 192 * sc) / sc, (h + 192 * sc) / sc);
       g.setTransform(1, 0, 0, 1, 0, 0);
     }
+    if (E.glitch && pz > .05) { // глитч на ударе: полосы кадра сдвигаются вбок, часть полос с цветным оттенком
+      g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+      for (let i = 0, n = 3 + Math.floor(Math.random() * 4); i < n; i++) {
+        const sh = Math.max(2, Math.round(h * (.01 + Math.random() * .06))), y = Math.floor(Math.random() * (h - sh)), dx = Math.round((Math.random() * 2 - 1) * w * .08 * pz);
+        try { g.drawImage(g.canvas, 0, y, w, sh, dx, y, w, sh); } catch (e) {}
+        if (Math.random() < .4) { g.globalCompositeOperation = 'screen'; g.globalAlpha = .35 * pz; g.fillStyle = Math.random() < .5 ? '#ff0040' : '#00c8ff'; g.fillRect(0, y, w, sh); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; }
+      }
+    }
     if (E.flash && flash > 0) fill('source-over', '#ffffff', Math.min(.5, flash * flash * .5));
     g.restore();
   }
-  function edTextDraw(g, w, h, E, t) { // надпись поверх эдита: шрифт, цвет, размер и положение берём из настроек
+  function edTextDraw(g, w, h, E, t) { edText1(g, w, h, E, t); (E.texts || []).forEach(x => edText1(g, w, h, { ...E, textDur: 0, textStart: 0, textFade: .6, ...x }, t)); }
+  function edText1(g, w, h, E, t) { // одна надпись поверх эдита: шрифт, цвет, размер и положение берём из настроек
     const txt = String(E.text || '').replace(/[\uFE0E\uFE0F]/g, '').trim(); if (!txt) return;
     const fs = Math.round(h * E.textSize / 100), st = FSTYLE[E.textFont] || {}, sx = st.sx || 1;
+    t -= E.textStart || 0; if (t < 0) return; // надпись может появиться не сразу
     let al = Math.min(1, t / .4); // надпись плавно появляется в начале
     if (E.textDur > 0) { if (t >= E.textDur) return; al = Math.min(al, E.textFade > 0 ? (E.textDur - t) / E.textFade : 1); } // и плавно гаснет к концу заданного времени
     g.save(); g.globalAlpha = Math.max(0, Math.min(1, al));
@@ -360,9 +370,17 @@
     lines.forEach((l, i) => { const x = w / 2 / sx, y = cy - half + i * lh; g.fillText(l, x, y); if (st.round) g.strokeText(l, x, y); });
     g.restore();
   }
+  function edFrame(g, w, h, E, t, len) { // кинорамка и затемнение всего видео (поверх надписей)
+    g.save(); g.globalCompositeOperation = 'source-over'; g.fillStyle = '#000';
+    if (E.letterbox) { const b = Math.round(h * .11); g.globalAlpha = 1; g.fillRect(0, 0, w, b); g.fillRect(0, h - b, w, b); }
+    let a = 0; if (E.fadeIn > 0 && t < E.fadeIn) a = Math.max(a, 1 - t / E.fadeIn);
+    if (E.fadeOut > 0 && t > len - E.fadeOut) a = Math.max(a, (t - (len - E.fadeOut)) / E.fadeOut);
+    if (a > 0) { g.globalAlpha = Math.min(1, a); g.fillRect(0, 0, w, h); }
+    g.restore();
+  }
   const evenN = n => Math.max(2, Math.round(n / 2) * 2);
   const FILTERS = ['none', 'bright', 'bw', 'warm', 'cool', 'moody', 'vivid'], TEMPOS = ['fast', 'mid', 'slow', 'mix'], POS = ['top', 'center', 'bottom'], QS = ['fast', 'high', 'max'];
-  const ED_DEF = { music: 1, also: false, res: 'v:0', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, textDur: 0, textFade: .6, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
+  const ED_DEF = { music: 1, also: false, res: 'v:0', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, textDur: 0, textFade: .6, textStart: 0, texts: [], shake: false, glitch: false, letterbox: false, fadeIn: 0, fadeOut: 0, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
   function edSpec(j, items) { // настройки от ИИ -> проверенные настройки эдита
     const E = { ...ED_DEF }, has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
     if (+j.music >= 1 && +j.music <= items.length) E.music = Math.round(+j.music);
@@ -383,7 +401,19 @@
     if (j.textDur != null && isFinite(+j.textDur) && +j.textDur >= 0) E.textDur = Math.min(120, Math.round(+j.textDur * 10) / 10); // сколько секунд надпись видна с начала (0 = весь эдит)
     if (j.textFade != null && isFinite(+j.textFade) && +j.textFade >= 0) E.textFade = Math.min(5, Math.round(+j.textFade * 10) / 10); // плавное исчезновение, секунды
     if (FILTERS.includes(j.filter)) E.filter = j.filter;
-    ['vignette', 'grain', 'flash', 'zoom'].forEach(k => { if (typeof j[k] === 'boolean') E[k] = j[k]; });
+    if (j.textStart != null && isFinite(+j.textStart) && +j.textStart >= 0) E.textStart = Math.min(120, +j.textStart);
+    if (j.fadeIn != null && isFinite(+j.fadeIn)) E.fadeIn = Math.max(0, Math.min(10, +j.fadeIn)); // из чёрного в начале, секунды
+    if (j.fadeOut != null && isFinite(+j.fadeOut)) E.fadeOut = Math.max(0, Math.min(10, +j.fadeOut)); // в чёрное в конце
+    if (Array.isArray(j.texts)) E.texts = j.texts.slice(0, 5).filter(x => x && typeof x.text === 'string' && x.text.trim()).map(x => { // дополнительные надписи
+      const y = { text: x.text.replace(/\\n/g, '\n').slice(0, 120) };
+      if (POS.includes(x.textPos)) y.textPos = x.textPos;
+      if (+x.textSize) y.textSize = Math.max(2, Math.min(16, +x.textSize));
+      if (/^#[0-9a-f]{6}$/i.test(x.textColor)) y.textColor = x.textColor;
+      if (typeof x.textFont === 'string' && has(FONTS, x.textFont)) y.textFont = x.textFont;
+      [['textDur', 120], ['textFade', 5], ['textStart', 120]].forEach(([k, m]) => { if (x[k] != null && isFinite(+x[k]) && +x[k] >= 0) y[k] = Math.min(m, +x[k]); });
+      return y;
+    });
+    ['vignette', 'grain', 'flash', 'zoom', 'shake', 'glitch', 'letterbox'].forEach(k => { if (typeof j[k] === 'boolean') E[k] = j[k]; });
     if (+j.fps === 30 || +j.fps === 60) E.fps = +j.fps;
     if (QS.includes(j.quality)) E.quality = j.quality;
     return E;
@@ -516,7 +546,7 @@
       if (vm && items[+vm[1]]) { w = evenN(items[+vm[1]].w); h = evenN(items[+vm[1]].h); } else [w, h] = E.res.split('x').map(Number);
       const fps = E.fps === 30 ? 30 : 60, c = document.createElement('canvas'); c.width = w; c.height = h;
       const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
-      const cover = (v, z) => { const vw = v.videoWidth, vh = v.videoHeight; if (!vw) return; const k = Math.max(w / vw, h / vh) * z; g.drawImage(v, (w - vw * k) / 2, (h - vh * k) / 2, vw * k, vh * k); };
+      const cover = (v, z, ox, oy) => { const vw = v.videoWidth, vh = v.videoHeight; if (!vw) return; const k = Math.max(w / vw, h / vh) * z; g.drawImage(v, (w - vw * k) / 2 + (ox || 0), (h - vh * k) / 2 + (oy || 0), vw * k, vh * k); };
       const type = ['video/mp4;codecs=avc1.64002A,mp4a.40.2', 'video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1.4D401F,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t));
       if (!type) throw new Error(tr('Этот браузер не умеет записывать видео.'));
       const dest = ctx.createMediaStreamDestination(), fadeG = ctx.createGain(), src = ctx.createBufferSource(); src.buffer = buf; src.connect(fadeG); fadeG.connect(dest);
@@ -550,8 +580,9 @@
           if (i + 1 < segs.length) { const nv = pool[segs[i + 1].k].v; nv.pause(); nv.currentTime = segs[i + 1].off; prep = i + 1; } // следующий клип готовим заранее
         }
         const dt = t - segs[cur].t0, v = pool[segs[cur].k].v;
-        if (!v.seeking && v.readyState >= 2) cover(v, E.zoom ? 1 + .08 * Math.pow(Math.max(0, 1 - dt / .22), 2) : 1);
-        edFx(g, w, h, E, Math.max(0, 1 - dt / .12)); edTextDraw(g, w, h, E, t);
+        const pz = Math.max(0, 1 - dt / .2), amp = E.shake ? w * .014 * pz * pz : 0; // pz: сила удара, гаснет за 0,2 с после каждой склейки
+        if (!v.seeking && v.readyState >= 2) cover(v, (E.zoom ? 1 + .08 * Math.pow(Math.max(0, 1 - dt / .22), 2) : 1) * (E.shake ? 1.05 : 1), (Math.random() * 2 - 1) * amp, (Math.random() * 2 - 1) * amp);
+        edFx(g, w, h, E, Math.max(0, 1 - dt / .12), pz); edTextDraw(g, w, h, E, t); edFrame(g, w, h, E, t, len);
         const sec = Math.floor(t); if (sec !== lastSay) { lastSay = sec; say(act('Записываю: ') + Math.min(sec, Math.round(len)) + ' / ' + Math.round(len) + act(' с.')); }
         t >= len ? done() : requestAnimationFrame(tick);
       })()); } finally { document.removeEventListener('visibilitychange', onVis); try { wl && wl.release(); } catch (e) {} }
