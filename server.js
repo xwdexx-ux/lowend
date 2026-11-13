@@ -425,26 +425,45 @@ function soundAI(req, res) {
       const studioOk = await hasStudio(th).catch(() => false);
       const vids = (Array.isArray(b.videos) ? b.videos : []).slice(0, 12).map((v, i) => (i + 1) + ') «' + String((v || {}).n || 'video').replace(/["\r\n]/g, ' ').slice(0, 50) + '» ' + (+(v || {}).w || 0) + 'x' + (+(v || {}).h || 0) + ', ' + Math.round(+(v || {}).dur || 0) + ' с').join('; ');
       const lastEditS = b.lastEdit && typeof b.lastEdit === 'object' ? JSON.stringify(b.lastEdit).slice(0, 1200) : '';
+      // реальное состояние сборки сообщает сайт: без этого ИИ выдумывал «эдит обрабатывается», хотя ничего не запущено
+      const es = b.editState && typeof b.editState === 'object' ? b.editState : {}, estate = ['running', 'done', 'failed'].includes(es.st) ? es.st : 'idle';
+      const editStateS = '\nСостояние сборки эдита (достоверно, сообщает сам сайт): ' + (estate === 'running' ? 'сборка идёт прямо сейчас, сайт сам показывает прогресс и выдаст файл. Если спрашивают «что там», «готово», «когда», скажи, что сборка идёт, и не запускай новую.' : estate === 'done' ? 'последний эдит уже собран и показан в чате.' : estate === 'failed' ? 'последняя сборка НЕ удалась' + (es.err ? ' (' + String(es.err).replace(/[\r\n]+/g, ' ').slice(0, 160) + ')' : '') + '. Так и скажи, не говори, что он собирается.' : 'сейчас ничего не собирается.') + ' Сборка запускается ТОЛЬКО если ты вернул поле video. Если video не вернул, никогда не пиши «собираю», «обрабатывается», «скоро будет», «готово».';
       const sys = SOUND_SYS + '\nЯзык интерфейса: ' + (b.lang === 'ru' ? 'ru' : 'en') + '. Текущие настройки звука: ' + JSON.stringify(b.current || {}) +
         '\nВидео-студия: ' + (studioOk ? 'доступна этому пользователю. ' + VIDEO_SYS + (lastEditS ? ' Последний эдит (lastEdit): ' + lastEditS + '.' : '') + (vids ? ' Видео, которые пользователь прикрепил (по номерам): ' + vids + '.' : ' Видео пока не прикреплены.') : 'недоступна этому пользователю (нужен Premium). Если просят сделать видео или эдит, скажи об этом и не добавляй поле video.');
-      let text;
-      if (GKEY) {
-        const contents = msgs.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] }));
-        if (withFiles) contents[contents.length - 1].parts.push(...att.images.map(x => ({ inlineData: { mimeType: x.mime, data: x.data } })), ...att.pdfs.map(x => ({ inlineData: { mimeType: 'application/pdf', data: x.data } })));
-        text = await geminiText(GKEY, sys, contents, smart, withFiles);
-      } else {
+      const sysFull = sys + (studioOk ? editStateS : '');
+      const attachIdx = msgs.length - 1;
+      const ask = async turns => {
+        if (GKEY) {
+          const contents = turns.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] }));
+          if (withFiles) contents[attachIdx].parts.push(...att.images.map(x => ({ inlineData: { mimeType: x.mime, data: x.data } })), ...att.pdfs.map(x => ({ inlineData: { mimeType: 'application/pdf', data: x.data } })));
+          return geminiText(GKEY, sysFull, contents, smart, withFiles);
+        }
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': AKEY, 'anthropic-version': '2023-06-01' }, signal: AbortSignal.timeout(withFiles ? 50000 : 30000),
-          body: JSON.stringify({ model: smart ? (process.env.ANTHROPIC_PRO_MODEL || 'claude-sonnet-5-5') : (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5'), max_tokens: 900, system: sys, messages: msgs.map((m, i) => ({ role: m.role, content: i === msgs.length - 1 && withFiles ? [...att.images.map(x => ({ type: 'image', source: { type: 'base64', media_type: x.mime, data: x.data } })), ...att.pdfs.map(x => ({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: x.data } })), { type: 'text', text: m.text }] : m.text })) })
+          body: JSON.stringify({ model: smart ? (process.env.ANTHROPIC_PRO_MODEL || 'claude-sonnet-5-5') : (process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5'), max_tokens: 900, system: sysFull, messages: turns.map((m, i) => ({ role: m.role, content: i === attachIdx && withFiles ? [...att.images.map(x => ({ type: 'image', source: { type: 'base64', media_type: x.mime, data: x.data } })), ...att.pdfs.map(x => ({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: x.data } })), { type: 'text', text: m.text }] : m.text })) })
         });
         const j = await r.json();
         if (!r.ok) throw new Error('Claude ' + r.status + ': ' + JSON.stringify(j).slice(0, 300));
-        text = (j.content || []).map(c => c.text || '').join('');
-      }
+        return (j.content || []).map(c => c.text || '').join('');
+      };
       // модель может ответить не JSON-ом (например, на «привет»): тогда весь текст и есть ответ
-      let o; const clean = text.replace(/```json|```/g, '').trim();
-      try { o = JSON.parse(clean); } catch (e) { const m = clean.match(/\{[\s\S]*\}/); try { o = m ? JSON.parse(m[0]) : null; } catch (e2) { o = null; } }
-      if (!o || typeof o !== 'object') o = { say: clean };
+      const parseAI = txt => {
+        let o; const clean = txt.replace(/```json|```/g, '').trim();
+        try { o = JSON.parse(clean); } catch (e) { const m = clean.match(/\{[\s\S]*\}/); try { o = m ? JSON.parse(m[0]) : null; } catch (e2) { o = null; } }
+        if (!o || typeof o !== 'object') o = { say: clean };
+        return o;
+      };
+      let text = await ask(msgs), o = parseAI(text);
+      // ИИ написал «собираю эдит», а поле video не вернул: ничего бы не запустилось. Просим исправиться один раз, иначе честно говорим, что сборки нет
+      const hasVid = x => !!(x && x.video && typeof x.video === 'object' && x.video.type === 'edit');
+      const claimsBuild = x => /собира|соберу|сборк|запустил|запускаю|обрабатыва|рендер|оставляю|убираю|меняю|сохраняю|эдит\s+(уже\s+)?(готов|собран)|видео\s+(уже\s+)?(готов|собран)|появится в чате|скоро (всё|он|будет|появ)|будет готов|building|processing|rendering|will appear|(edit|video|it)\s+(is|'s)\s+(ready|done)|in progress/i.test(x);
+      if (studioOk && estate !== 'running' && vids && !hasVid(o) && claimsBuild(String(o.say || ''))) {
+        try {
+          const t2 = await ask([...msgs, { role: 'assistant', text: JSON.stringify({ say: String(o.say) }) }, { role: 'user', text: '[сообщение сайта, не от пользователя] Ты написал, что делаешь эдит, но не вернул поле video, поэтому ничего не запустилось. Верни ответ ещё раз, обязательно с полем video (учти lastEdit, если он есть). Если сделать это нельзя, честно напиши в say, что ничего не собирается, и почему.' }]);
+          const o2 = parseAI(t2); if (hasVid(o2)) o = o2;
+        } catch (e) { console.log('ai retry error:', e.message); }
+        if (!hasVid(o) && claimsBuild(String(o.say || ''))) o.say = b.lang === 'ru' ? 'Сейчас ничего не собирается: сборка не запустилась. Напиши ещё раз, что изменить в эдите, и я соберу его заново.' : 'Nothing is being built right now: the build did not start. Tell me again what to change in the edit and I will rebuild it.';
+      }
       const keep = {}; for (const k of ['say', 'speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle', 'sub', 'dist', 'search']) if (o[k] !== undefined) keep[k] = o[k];
       if (studioOk && o.video && typeof o.video === 'object' && o.video.type === 'edit' && JSON.stringify(o.video).length < 3000) { keep.video = fixVideoText(o.video, userSaid, userAll); if (/символ|надпис/i.test(keep.say || '')) keep.say = String(keep.say).replace(/«[^»]*»/g, keep.video.text ? '«' + keep.video.text.replace(/\n/g, ' ') + '»' : ''); }
       if (!keep.say) throw new Error('empty reply: ' + text.slice(0, 200));

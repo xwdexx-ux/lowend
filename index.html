@@ -238,6 +238,13 @@ html.ai-lock .wrap{visibility:hidden}
 .ai-thumbs .att{width:72px;height:72px}
 .ai-thumbs .att.file{width:auto;min-width:72px}
 #aiApp.drag{outline:2px dashed var(--a);outline-offset:-8px}
+/* чат не должен ездить: страница под ним намертво закреплена, пока чат открыт (iOS иначе прокручивает её при клавиатуре) */
+html.ai-lock body{position:fixed;left:0;right:0;width:100%}
+#aiApp{will-change:transform}
+.think{flex-wrap:wrap;row-gap:8px}
+.think .pbar{flex:0 0 100%;height:3px;border-radius:3px;background:var(--track);overflow:hidden}
+.think .pbar i{display:block;height:100%;width:0;background:var(--text);border-radius:3px;transition:width .5s linear}
+.ai-vidgone{margin-top:10px;color:var(--muted);font-size:14px}
 </style>
 </head>
 <body>
@@ -440,7 +447,7 @@ const LANG = {
 ru: {
   pick:'Выбери трек', pickSub:'Загрузи песню ниже', len:'Длина: ', nosound:'Нет звука? Проверь громкость и переключатель «без звука» сбоку телефона.',
   searchH:'Поиск треков', searchPh:'Название или исполнитель', find:'Найти', searchHint:'Находит 30-секундные превью. Полный трек загрузи сам ниже.',
-  aiH:'lowend AI', aiPh:'Напиши lowend AI', aiHello:'lowend AI', aiSub:'Опиши звук словами или просто пообщайся', aiS1:'Сделай грустный slowed с реверберацией', aiS2:'Добавь мощный бас, но чтобы слышно было на телефоне', aiS3:'Привет! Что ты умеешь?', aiErr:'ИИ недоступен.', aiNew:'Новый чат', aiPlayer:'Плеер', aiOpen:'К плееру', aiNote:'lowend AI может ошибаться.', aiVidText:'Видео с текстом', aiVidEdit:'Эдит из видео', aiTkVid:'Смотрю видео…|Ищу бит и ритм…|Продумываю нарезку…|Настраиваю эдит…', aiTkFind:'Ищу подходящий трек…|Сверяю результаты…', aiTkSound:'Подбираю параметры звука…|Настраиваю бас и пространство…|Проверяю баланс…', aiTkChat:'Размышляю…|Формулирую ответ…', aiVidLoad:'Готовлю эдит…', aiVidWait:'Эдит готов к сборке. Вернись на сайт, и я сразу начну', aiVidDone:'Эдит готов.', aiVidSave:'Сохранить в Фото', aiVidDl:'Скачать файл', aiVidFail:'Не получилось собрать эдит.', aiBug:'Это ошибка внутри сайта, а не в твоих файлах.', aiVidNone:'Сначала прикрепи видео, из которых собрать эдит.', aiMenu:'Меню', aiChats:'Чаты', aiNoChats:'Пока нет чатов', aiDelQ:'Удалить этот чат?', aiDel:'Удалить', aiAttPhoto:'Фото и видео', aiAttCam:'Камера', aiAttFile:'Файл (PDF, текст)', aiAttAdd:'Прикрепить', aiLook:'Посмотри вложение', aiAttMax:'Максимум 6 вложений.', aiAttBig:'Файл слишком большой.', aiAttFail:'Не получилось открыть файл.',
+  aiH:'lowend AI', aiPh:'Напиши lowend AI', aiHello:'lowend AI', aiSub:'Опиши звук словами или просто пообщайся', aiS1:'Сделай грустный slowed с реверберацией', aiS2:'Добавь мощный бас, но чтобы слышно было на телефоне', aiS3:'Привет! Что ты умеешь?', aiErr:'ИИ недоступен.', aiNew:'Новый чат', aiPlayer:'Плеер', aiOpen:'К плееру', aiNote:'lowend AI может ошибаться.', aiVidBusy:'Эдит уже собирается. Подожди, пока он закончится, и напиши ещё раз.', aiVidNoStudio:'Не получилось загрузить Студию (нужен Premium и интернет). Сборка не запущена.', aiVidGone:'Файл этого эдита уже не хранится на устройстве. Попроси собрать его заново.', aiVidRestoring:'Достаю видео…', aiTkLong:'Всё ещё работаю, это занимает чуть дольше обычного…', aiVidText:'Видео с текстом', aiVidEdit:'Эдит из видео', aiTkVid:'Смотрю видео…|Ищу бит и ритм…|Продумываю нарезку…|Настраиваю эдит…', aiTkFind:'Ищу подходящий трек…|Сверяю результаты…', aiTkSound:'Подбираю параметры звука…|Настраиваю бас и пространство…|Проверяю баланс…', aiTkChat:'Размышляю…|Формулирую ответ…', aiVidLoad:'Готовлю эдит…', aiVidWait:'Эдит готов к сборке. Вернись на сайт, и я сразу начну', aiVidDone:'Эдит готов.', aiVidSave:'Сохранить в Фото', aiVidDl:'Скачать файл', aiVidFail:'Не получилось собрать эдит.', aiBug:'Это ошибка внутри сайта, а не в твоих файлах.', aiVidNone:'Сначала прикрепи видео, из которых собрать эдит.', aiMenu:'Меню', aiChats:'Чаты', aiNoChats:'Пока нет чатов', aiDelQ:'Удалить этот чат?', aiDel:'Удалить', aiAttPhoto:'Фото и видео', aiAttCam:'Камера', aiAttFile:'Файл (PDF, текст)', aiAttAdd:'Прикрепить', aiLook:'Посмотри вложение', aiAttMax:'Максимум 6 вложений.', aiAttBig:'Файл слишком большой.', aiAttFail:'Не получилось открыть файл.',
   h1:'1. Трек', drop:'Нажми и выбери песню (mp3, m4a, wav)', h2:'2. Звук', chipLoud:'Громче', chipEcho:'Эхо', chipWater:'Под водой', chipReset:'Сбросить',
   lSub:'Саб-бас', lDist:'Искажение', chipSub:'Саб-бас', chipDist:'Искажение', chipBBS:'Бас + ускоренный', chipSR:'Замедленный + реверб', chipNC:'Найткор',
   lSpeed:'Скорость', lBass:'Бас', lReverb:'Реверб', lPan:'8D панорама', lVol:'Громкость', lTreble:'Высокие', lEcho:'Эхо', lMuffle:'Под водой',
@@ -478,7 +485,7 @@ ru: {
 en: {
   pick:'Pick a track', pickSub:'Upload a song below', len:'Length: ', nosound:'No sound? Check the volume and the silent switch on the side of your phone.',
   searchH:'Track search', searchPh:'Title or artist', find:'Search', searchHint:'Finds 30-second previews. Upload the full track yourself below.',
-  aiH:'lowend AI', aiPh:'Message lowend AI', aiHello:'lowend AI', aiSub:'Describe the sound or just chat', aiS1:'Make a sad slowed + reverb version', aiS2:'Add strong bass that is audible on a phone', aiS3:'Hi! What can you do?', aiErr:'AI is unavailable.', aiNew:'New chat', aiPlayer:'Player', aiOpen:'Open player', aiNote:'lowend AI can make mistakes.', aiVidText:'Text video', aiVidEdit:'Video edit', aiTkVid:'Looking at the video…|Finding the beat and rhythm…|Planning the cuts…|Setting up the edit…', aiTkFind:'Searching for a track…|Checking the results…', aiTkSound:'Choosing the sound settings…|Tuning the bass and space…|Checking the balance…', aiTkChat:'Thinking…|Putting the answer together…', aiVidLoad:'Preparing the edit…', aiVidWait:'The edit is ready to build. Come back to the site and I will start right away', aiVidDone:'Your edit is ready.', aiVidSave:'Save to Photos', aiVidDl:'Download file', aiVidFail:'Could not build the edit.', aiBug:'This is a bug inside the site, not a problem with your files.', aiVidNone:'Attach the videos to build the edit from first.', aiMenu:'Menu', aiChats:'Chats', aiNoChats:'No chats yet', aiDelQ:'Delete this chat?', aiDel:'Delete', aiAttPhoto:'Photos & videos', aiAttCam:'Camera', aiAttFile:'File (PDF, text)', aiAttAdd:'Attach', aiLook:'Take a look at the attachment', aiAttMax:'Up to 6 attachments.', aiAttBig:'File is too large.', aiAttFail:'Could not open the file.',
+  aiH:'lowend AI', aiPh:'Message lowend AI', aiHello:'lowend AI', aiSub:'Describe the sound or just chat', aiS1:'Make a sad slowed + reverb version', aiS2:'Add strong bass that is audible on a phone', aiS3:'Hi! What can you do?', aiErr:'AI is unavailable.', aiNew:'New chat', aiPlayer:'Player', aiOpen:'Open player', aiNote:'lowend AI can make mistakes.', aiVidBusy:'An edit is already being built. Wait for it to finish, then ask again.', aiVidNoStudio:'Could not load the Studio (Premium and a connection are required). The build was not started.', aiVidGone:'This edit file is no longer stored on this device. Ask me to build it again.', aiVidRestoring:'Loading the video…', aiTkLong:'Still working, this is taking a bit longer than usual…', aiVidText:'Text video', aiVidEdit:'Video edit', aiTkVid:'Looking at the video…|Finding the beat and rhythm…|Planning the cuts…|Setting up the edit…', aiTkFind:'Searching for a track…|Checking the results…', aiTkSound:'Choosing the sound settings…|Tuning the bass and space…|Checking the balance…', aiTkChat:'Thinking…|Putting the answer together…', aiVidLoad:'Preparing the edit…', aiVidWait:'The edit is ready to build. Come back to the site and I will start right away', aiVidDone:'Your edit is ready.', aiVidSave:'Save to Photos', aiVidDl:'Download file', aiVidFail:'Could not build the edit.', aiBug:'This is a bug inside the site, not a problem with your files.', aiVidNone:'Attach the videos to build the edit from first.', aiMenu:'Menu', aiChats:'Chats', aiNoChats:'No chats yet', aiDelQ:'Delete this chat?', aiDel:'Delete', aiAttPhoto:'Photos & videos', aiAttCam:'Camera', aiAttFile:'File (PDF, text)', aiAttAdd:'Attach', aiLook:'Take a look at the attachment', aiAttMax:'Up to 6 attachments.', aiAttBig:'File is too large.', aiAttFail:'Could not open the file.',
   h1:'1. Track', drop:'Tap and choose a song (mp3, m4a, wav)', h2:'2. Sound', chipLoud:'Louder', chipEcho:'Echo', chipWater:'Underwater', chipReset:'Reset',
   lSub:'Sub bass', lDist:'Distortion', chipSub:'Sub bass', chipDist:'Distortion', chipBBS:'Bass boosted + sped up', chipSR:'Slowed + reverb', chipNC:'Nightcore',
   lSpeed:'Speed', lBass:'Bass', lReverb:'Reverb', lPan:'8D pan', lVol:'Volume', lTreble:'Treble', lEcho:'Echo', lMuffle:'Underwater',
@@ -1004,9 +1011,13 @@ let aiBusy = false;
 const drawer = $('drawer');
 function drawerOpen() { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); renderChatList(); drawer.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => drawer.classList.add('open'))); }
 function drawerClose() { drawer.classList.remove('open'); setTimeout(() => { if (!drawer.classList.contains('open')) drawer.hidden = true; }, 240); }
+let lockY = 0;
 function showAI(on) {
+  const was = document.documentElement.classList.contains('ai-lock');
+  if (on && !was) { lockY = window.scrollY || 0; document.body.style.top = -lockY + 'px'; }
   $('aiApp').hidden = !on; document.body.style.overflow = on ? 'hidden' : ''; document.documentElement.classList.toggle('ai-lock', on);
-  if (!on) { aiEl.style.height = ''; aiEl.style.top = ''; aiEl.classList.remove('kb'); $('aiPop').hidden = true; $('aiPlus').classList.remove('on'); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } else fitAI();
+  if (!on && was) { document.body.style.top = ''; window.scrollTo(0, lockY); }
+  if (!on) { aiEl.style.height = ''; aiEl.style.top = ''; aiEl.style.transform = ''; aiEl.classList.remove('kb'); $('aiPop').hidden = true; $('aiPlus').classList.remove('on'); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } else fitAI();
   $('dAI').classList.toggle('on', on); $('dPlayer').classList.toggle('on', !on);
   renderChatList();
   if (on) { renderChat(); if (!('ontouchstart' in window)) setTimeout(() => $('aiIn').focus(), 60); }
@@ -1024,15 +1035,26 @@ function thinkSteps(text, hasVid) { // что ИИ сейчас делает: п
   ru.forEach((x, i) => { out.push(x); if (en[i]) out.push(en[i]); });
   return out;
 }
-function thinkEl(first, steps) { // строка хода работы, как у Claude: три оранжевые точки слева и переливающийся текст; фазы сменяются сами, set() ставит свой текст
-  const d = document.createElement('div'); d.className = 'msg a think'; d.setAttribute('role', 'status'); d.innerHTML = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><b></b>';
-  const b = d.querySelector('b'); let i = 0, timer = 0, sw = 0; b.textContent = steps && steps.length ? steps[0] : first;
+function thinkEl(first, steps) { // строка хода работы, как у Claude: точки слева и переливающийся текст; фазы сменяются сами, set() ставит свой текст; «N / M» рисует полоску прогресса
+  const d = document.createElement('div'); d.className = 'msg a think'; d.setAttribute('role', 'status'); d.innerHTML = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><b></b><span class="pbar" hidden><i></i></span>';
+  const b = d.querySelector('b'), bar = d.querySelector('.pbar'); let i = 0, timer = 0, sw = 0, lt = 0; b.textContent = steps && steps.length ? steps[0] : first;
   const put = x => { clearTimeout(sw); b.style.opacity = 0; sw = setTimeout(() => { b.textContent = x; b.style.opacity = 1; }, 180); }; // смена фразы: плавно гаснет и появляется
   if (steps && steps.length > 1) timer = setInterval(() => { i = Math.min(i + 1, steps.length - 1); put(steps[i]); if (i === steps.length - 1) clearInterval(timer); }, 2400);
-  d.set = x => { clearInterval(timer); put(x); };
-  const rm = d.remove.bind(d); d.remove = () => { clearInterval(timer); clearTimeout(sw); rm(); };
+  if (steps) lt = setTimeout(() => { if (d.isConnected) d.set(t('aiTkLong')); }, 25000); // долго нет ответа: честно говорим, что работаем
+  d.set = x => {
+    clearInterval(timer); const m = /(\d+)\s*\/\s*(\d+)/.exec(String(x));
+    if (m && +m[2] > 0) { clearTimeout(sw); b.style.opacity = 1; b.textContent = x; bar.hidden = false; bar.firstChild.style.width = Math.min(100, +m[1] / +m[2] * 100) + '%'; } // прогресс обновляется каждую секунду: без мигания
+    else { bar.hidden = true; put(x); }
+  };
+  const rm = d.remove.bind(d); d.remove = () => { clearInterval(timer); clearTimeout(sw); clearTimeout(lt); rm(); };
   return d;
 }
+const VDB = (() => { // готовые эдиты лежат в IndexedDB: если iOS выгрузил вкладку, видео не пропадает
+  let p; const open = () => p || (p = new Promise((res, rej) => { const r = indexedDB.open('lowend_vids', 1); r.onupgradeneeded = () => r.result.createObjectStore('v'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }));
+  const tx = (mode, f) => open().then(db => new Promise((res, rej) => { const t = db.transaction('v', mode), q = f(t.objectStore('v')); t.oncomplete = () => res(q && q.result); t.onerror = t.onabort = () => rej(t.error); }));
+  return { put: (k, v) => tx('readwrite', s => s.put(v, k)), get: k => tx('readonly', s => s.get(k)), del: k => tx('readwrite', s => s.delete(k)), keys: () => tx('readonly', s => s.getAllKeys()) };
+})();
+const pruneVids = async () => { try { const ks = (await VDB.keys()).sort(); while (ks.length > 6) await VDB.del(ks.shift()); } catch (e) {} };
 const vidLive = new Map(); // blob-адрес готового эдита -> {blob, ext, name}; живёт, пока открыта страница
 function vidEl(url) {
   const v = vidLive.get(url), w = document.createElement('div'); w.className = 'ai-vid';
@@ -1055,7 +1077,13 @@ function msgEl(m, animate) {
     const tick = () => { n = Math.min(full.length, n + step); tx.textContent = full.slice(0, n); toBottom(); if (n < full.length) setTimeout(tick, 12); };
     tick();
   }
-  if (m.vid && vidLive.has(m.vid)) d.appendChild(vidEl(m.vid));
+  if (m.vid || m.vidId) {
+    if (m.vid && vidLive.has(m.vid)) d.appendChild(vidEl(m.vid));
+    else {
+      const ph = document.createElement('div'); ph.className = 'ai-vidgone'; ph.textContent = m.vidId ? t('aiVidRestoring') : t('aiVidGone'); d.appendChild(ph);
+      if (m.vidId) VDB.get(m.vidId).then(v => { if (!v || !v.blob) { ph.textContent = t('aiVidGone'); return; } const url = URL.createObjectURL(v.blob); vidLive.set(url, v); m.vid = url; ph.replaceWith(vidEl(url)); }).catch(() => { ph.textContent = t('aiVidGone'); });
+    }
+  }
   if (m.tags && m.tags.length) {
     const w = document.createElement('div'); w.className = 'ai-tags';
     m.tags.forEach(x => { const s = document.createElement('span'); s.className = 'ai-tag'; s.textContent = x; w.appendChild(s); });
@@ -1072,6 +1100,7 @@ function renderChat() {
     ['aiS1', 'aiS2', 'aiS3'].forEach(k => { const b = document.createElement('button'); b.textContent = t(k); b.onclick = () => aiSend(b.textContent); e.querySelector('.ai-sug').appendChild(b); });
     col.appendChild(e);
   } else cur.msgs.forEach(m => col.appendChild(msgEl(m, false)));
+  if (buildBox && buildBox.th === cur) col.appendChild(buildBox.el);
   toBottom(true);
 }
 const updSend = () => { $('aiSend').disabled = aiBusy || attBusy > 0 || (!$('aiIn').value.trim() && !atts.length); };
@@ -1089,8 +1118,9 @@ async function pollJob(jid) { // сайт был свёрнут и связь о
   throw new Error(t('aiErr'));
 }
 async function aiCall(body, jid) {
-  let r; try { r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', 'x-token': tok, 'x-job': jid }, body }); } catch (e) { return pollJob(jid); }
-  try { return { ok: r.ok, j: await r.json() }; } catch (e) { return pollJob(jid); }
+  const ac = new AbortController(), to = setTimeout(() => ac.abort(), 75000); // запрос завис: не ждём вечно, а забираем ответ по id задачи
+  let r; try { r = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json', 'x-token': tok, 'x-job': jid }, body, signal: ac.signal }); } catch (e) { clearTimeout(to); return pollJob(jid); }
+  try { const j = await r.json(); clearTimeout(to); return { ok: r.ok, j }; } catch (e) { clearTimeout(to); return pollJob(jid); }
 }
 const baseTitle = document.title;
 function ping(msg) { // готово, а ты не на сайте: уведомление (где браузер это умеет) и метка в заголовке вкладки
@@ -1123,9 +1153,9 @@ async function aiSend(text) {
   if (wasEmpty) renderChat(); else $('aiCol').appendChild(msgEl(um, false)); // без полной перерисовки: лента не прыгает
   const typing = thinkEl('', thinkSteps(text, sent.some(a => a.k === 'video'))); $('aiCol').appendChild(typing); toBottom(true);
   try {
-    const hist = th.msgs.slice(-12).map((m, i, arr) => ({ role: m.role, text: (m.text || (m.atts ? t('aiLook') : '')) + (m.atts && i < arr.length - 1 ? ' [attached: ' + m.atts.map(a => a.n).join(', ') + ']' : '') }));
+    const hist = th.msgs.slice(-12).map((m, i, arr) => ({ role: m.role, text: (m.text || (m.atts ? t('aiLook') : '')) + (m.atts && i < arr.length - 1 ? ' [attached: ' + m.atts.map(a => a.n).join(', ') + ']' : '') + (m.vidId || m.vid ? ' [сайт собрал этот эдит и показал видео в чате]' : m.bfail ? ' [сайт не смог собрать эдит]' : '') }));
     const jid = jobId();
-    const { ok, j } = await aiCall(JSON.stringify({ messages: hist, current: S, lang, attach, lastEdit: lastEditOut(), videos: chatVideos.map(v => ({ n: v.n, w: v.w, h: v.h, dur: v.dur })) }), jid);
+    const { ok, j } = await aiCall(JSON.stringify({ messages: hist, current: S, lang, attach, lastEdit: lastEditOut(), editState: buildInfo(), videos: chatVideos.map(v => ({ n: v.n, w: v.w, h: v.h, dur: v.dur })) }), jid);
     if (!ok) throw new Error(j.error || t('aiErr'));
     const n = { ...S }, tags = [];
     for (const k in AIR) if (j[k] !== undefined && isFinite(+j[k])) {
@@ -1137,20 +1167,29 @@ async function aiSend(text) {
     if (j.search) { $('q').value = String(j.search).slice(0, 100); doSearch(); tags.push('🔎 ' + String(j.search).slice(0, 40)); }
     const m = { role: 'assistant', text: String(j.say).slice(0, 1500), tags }; th.msgs.push(m); saveThread(th);
     typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl(m, true)); ping(m.text.slice(0, 120));
-    if (vspec) await runChatVideo(vspec, th);
+    if (vspec) runChatVideo(vspec, th).catch(e => console.error('edit error:', e)); // не ждём: пока идёт сборка, чат свободен, можно писать дальше
   } catch (e) { typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl({ role: 'assistant', text: niceErr(e, t('aiErr')), err: true }, false)); }
   aiBusy = false; updSend(); toBottom(); fitAI();
 }
 function aiGrow() { const a = $('aiIn'); a.style.height = 'auto'; a.style.height = Math.min(140, a.scrollHeight) + 'px'; }
 /* ---------- подгонка чата под клавиатуру (iOS не уменьшает окно, а прокручивает его) ---------- */
 const vv = window.visualViewport;
+let fitRaf = 0;
 function fitAI() {
   if (aiEl.hidden) return;
   const f = $('aiFeed'), near = f.scrollHeight - f.scrollTop - f.clientHeight < 80;
-  if (vv) { aiEl.style.height = Math.round(vv.height) + 'px'; aiEl.style.top = Math.round(vv.offsetTop) + 'px'; aiEl.classList.toggle('kb', window.innerHeight - vv.height > 120); }
+  if (vv) {
+    const h = Math.round(vv.height), top = Math.round(vv.offsetTop);
+    if (aiEl.style.height !== h + 'px') aiEl.style.height = h + 'px';
+    aiEl.style.top = '0px'; aiEl.style.transform = top ? 'translate3d(0,' + top + 'px,0)' : ''; // сдвиг через transform, а не top: без скачков раскладки
+    aiEl.classList.toggle('kb', window.innerHeight - vv.height > 120);
+  }
+  if (window.scrollY || document.documentElement.scrollTop) window.scrollTo(0, 0); // iOS при клавиатуре крутит саму страницу: возвращаем на место
   if (near) toBottom();
 }
-if (vv) { vv.addEventListener('resize', fitAI); vv.addEventListener('scroll', fitAI); }
+const fitSoon = () => { cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(fitAI); };
+if (vv) { vv.addEventListener('resize', fitSoon); vv.addEventListener('scroll', fitSoon); }
+window.addEventListener('scroll', () => { if (!aiEl.hidden && window.scrollY) window.scrollTo(0, 0); }, { passive: true });
 window.addEventListener('orientationchange', () => setTimeout(fitAI, 300));
 $('aiIn').addEventListener('focus', () => { fitAI(); setTimeout(fitAI, 150); setTimeout(fitAI, 450); });
 $('aiIn').addEventListener('blur', () => setTimeout(fitAI, 100));
@@ -1481,24 +1520,29 @@ const openStudioFlow = async () => {
 function lastEditOut() { // прошлый эдит для ИИ; разрешение «v:N» превращаем в «same:N+1», как его понимает ИИ
   if (!lastEdit) return null; const o = { ...lastEdit }, m = /^v:(\d+)$/.exec(o.res || ''); if (m) o.res = 'same:' + (+m[1] + 1); return o;
 }
+let build = { st: 'idle', err: '' }, buildBox = null; // что сайт делает с эдитом на самом деле: это же отправляется ИИ, чтобы он не выдумывал «обрабатывается»
+const buildInfo = () => ({ st: build.st, err: String(build.err || '').slice(0, 160) });
 async function runChatVideo(spec, th) {
   if (!spec || spec.type !== 'edit') return; // ничего никуда не перекидывает: эдит собирается тут, в чате
-  // эдит из клипов собирает сам ИИ прямо в чате: показывает ход работы и выдаёт готовый файл
-  const show = el => { if (cur === th) { $('aiCol').appendChild(el); toBottom(); } };
+  const show = el => { if (cur === th) { $('aiCol').appendChild(el); toBottom(true); } };
+  const note = (text, extra) => { const m = { role: 'assistant', text, err: true, ...extra }; th.msgs.push(m); saveThread(th); show(msgEl(m, false)); };
+  if (build.st === 'running') return note(t('aiVidBusy'));
   const files = chatVideos.map(v => v.file), box = thinkEl(t('aiVidLoad'));
-  const fail = msg => { box.remove(); const m = { role: 'assistant', text: msg, err: true }; th.msgs.push(m); saveThread(th); show(msgEl(m, false)); };
+  const fail = msg => { build = { st: 'failed', err: msg }; box.remove(); buildBox = null; note(msg, { bfail: true }); };
   if (!files.length) return fail(t('aiVidNone'));
-  show(box);
+  build = { st: 'running', err: '' }; buildBox = { el: box, th }; show(box);
   try {
-    if (!(await loadStudio())) return box.remove();
+    if (!(await loadStudio(true))) return fail(t('aiVidNoStudio'));
     if (document.hidden) box.set(t('aiVidWait'));
     if (document.hidden) await new Promise(r => { const f = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', f); r(); } }; document.addEventListener('visibilitychange', f); }); // запись идёт только на экране: стартует, как только вернёшься
     if (!window.studioEdit) throw new Error(t('aiVidFail') + ' ' + t('aiBug'));
+    box.set(t('aiVidLoad'));
     const r = await window.studioEdit(spec, files, x => { box.set(x); if (cur === th) toBottom(); });
     if (r.spec) lastEdit = r.spec;
-    const url = URL.createObjectURL(r.blob); vidLive.set(url, r);
-    box.remove();
-    const m = { role: 'assistant', text: t('aiVidDone'), vid: url }; th.msgs.push(m); saveThread(th); show(msgEl(m, false)); ping(m.text);
+    const vidId = uid(), url = URL.createObjectURL(r.blob); vidLive.set(url, r);
+    VDB.put(vidId, { blob: r.blob, ext: r.ext, name: r.name }).then(pruneVids).catch(() => {});
+    build = { st: 'done', err: '' }; box.remove(); buildBox = null;
+    const m = { role: 'assistant', text: t('aiVidDone'), vid: url, vidId }; th.msgs.push(m); saveThread(th); show(msgEl(m, false)); ping(m.text);
   } catch (e) { console.error('edit error:', e); fail(niceErr(e, t('aiVidFail'))); }
 }
 $('studioBtn').onclick = openStudioFlow; $('premOpen').onclick = openStudioFlow;
