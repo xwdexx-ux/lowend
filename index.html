@@ -1017,7 +1017,12 @@ const CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 function thinkSteps(text, hasVid) { // что ИИ сейчас делает: подпись зависит от запроса и меняется, как «Размышляю…» у Claude. Язык берётся из языка сайта
   const x = String(text).toLowerCase();
   const k = hasVid || /эдит|слайд|клип|видео|edit|video|slideshow|clip/.test(x) ? 'aiTkVid' : /найд|поищ|трек|песн|find|search|song|track/.test(x) ? 'aiTkFind' : /бас|реверб|звук|скорост|slowed|speed|bass|reverb|echo|sound|treble/.test(x) ? 'aiTkSound' : 'aiTkChat';
-  return t(k).split('|');
+  // как у Claude: на русском мысли идут по-русски, а за каждой следует действие по-английски; на английском всё только по-английски
+  const en = LANG.en[k].split('|');
+  if (lang !== 'ru') return en;
+  const ru = (LANG.ru[k] || LANG.en[k]).split('|'), out = [];
+  ru.forEach((x, i) => { out.push(x); if (en[i]) out.push(en[i]); });
+  return out;
 }
 function thinkEl(first, steps) { // строка хода работы, как у Claude: три оранжевые точки слева и переливающийся текст; фазы сменяются сами, set() ставит свой текст
   const d = document.createElement('div'); d.className = 'msg a think'; d.setAttribute('role', 'status'); d.innerHTML = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><b></b>';

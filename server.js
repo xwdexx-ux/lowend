@@ -339,11 +339,18 @@ const VIDEO_SYS = 'Если пользователь просит сделать
 // Надпись эдита берём только из слов пользователя: ИИ путает символы на мелких кадрах и дописывает ники.
 // Если пользователь прислал символ (например ℏ), он ставится как есть. @ник убирается, если пользователь его не писал.
 const SYM_RE = /[\u2100-\u214F\u2190-\u23FF\u25A0-\u27BF\u2B00-\u2BFF\u3000-\u30FF\u0370-\u03FF\p{So}\p{Sm}][\uFE0E\uFE0F]?/gu;
-function fixVideoText(v, said) {
-  const o = { ...v }, said0 = String(said || '');
-  if (typeof o.text === 'string') o.text = o.text.replace(/@[\w.]{2,}/g, m => said0.toLowerCase().includes(m.toLowerCase()) ? m : '').replace(/[ \t]+\n/g, '\n').trim();
-  const sym = (said0.match(SYM_RE) || []).filter(m => !/\p{Extended_Pictographic}/u.test(m)).join('').trim(); // эмодзи из болтовни не считаем символом
-  if (sym && sym.length <= 8 && /символ|надпис|текст|написа|поверх|symbol|text|caption|logo|лого/i.test(said0) && !String(o.text || '').includes(sym)) o.text = sym; // пользователь сам прислал символ: он и есть надпись
+const DEF_SYM = process.env.EDIT_SYMBOL || '\u210f'; // символ по умолчанию, если пользователь сказал «тот символ», а сам его не написал (можно сменить переменной EDIT_SYMBOL)
+const symOf = t => (String(t || '').match(SYM_RE) || []).filter(m => !/\p{Extended_Pictographic}/u.test(m)).join('').trim();
+function fixVideoText(v, said, all) {
+  const o = { ...v }, said0 = String(said || ''), all0 = String(all || said0);
+  const wants = /символ|надпис|symbol|caption|logo|лого/i.test(said0);
+  const sym = symOf(said0) || symOf(all0); // что пользователь сам прислал в этом чате
+  let txt = typeof o.text === 'string' ? o.text.replace(/@[\w.]{2,}/g, m => all0.toLowerCase().includes(m.toLowerCase()) ? m : '').replace(/[ \t]+\n/g, '\n').trim() : '';
+  const mine = txt && (all0.includes(txt) || (sym && txt.includes(sym))); // надпись должна быть из слов пользователя, а не придумана по кадрам
+  if (txt && !mine) txt = '';
+  if (sym && sym.length <= 8 && wants && !txt.includes(sym)) txt = sym;
+  if (!txt && wants) txt = DEF_SYM;
+  if (typeof o.text === 'string' || txt) o.text = txt;
   return o;
 }
 const soundHits = new Map();
@@ -408,7 +415,7 @@ function soundAI(req, res) {
       if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return out(400, { error: 'empty' });
       const att = cleanAttach(b.attach);
       if (att.tooBig) return out(413, { error: 'Вложения слишком большие. / Attachments are too large.' });
-      const last = msgs[msgs.length - 1], userSaid = last.text; // что пользователь написал сам, без вложений
+      const last = msgs[msgs.length - 1], userSaid = last.text, userAll = msgs.filter(m => m.role === 'user').map(m => m.text).join('\n'); // что пользователь написал сам, без вложений
       if (att.note) last.text += '\n[' + att.note + ']';
       for (const f of att.files) last.text += '\n\n[Файл: ' + f.name + ']\n' + f.text;
       const withFiles = hasAttach(att);
@@ -435,7 +442,7 @@ function soundAI(req, res) {
       try { o = JSON.parse(clean); } catch (e) { const m = clean.match(/\{[\s\S]*\}/); try { o = m ? JSON.parse(m[0]) : null; } catch (e2) { o = null; } }
       if (!o || typeof o !== 'object') o = { say: clean };
       const keep = {}; for (const k of ['say', 'speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle', 'sub', 'dist', 'search']) if (o[k] !== undefined) keep[k] = o[k];
-      if (studioOk && o.video && typeof o.video === 'object' && o.video.type === 'edit' && JSON.stringify(o.video).length < 1500) keep.video = fixVideoText(o.video, userSaid);
+      if (studioOk && o.video && typeof o.video === 'object' && o.video.type === 'edit' && JSON.stringify(o.video).length < 1500) { keep.video = fixVideoText(o.video, userSaid, userAll); if (/символ|надпис/i.test(keep.say || '')) keep.say = String(keep.say).replace(/«[^»]*»/g, keep.video.text ? '«' + keep.video.text.replace(/\n/g, ' ') + '»' : ''); }
       if (!keep.say) throw new Error('empty reply: ' + text.slice(0, 200));
       out(200, keep);
     } catch (e) { console.log('ai error:', e.message); out(500, { error: 'ИИ не смог обработать запрос. / AI could not process the request.' }); }
