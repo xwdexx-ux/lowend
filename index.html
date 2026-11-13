@@ -207,8 +207,9 @@ button.ai-tag{margin:0;background:var(--a);color:var(--onA);border-color:transpa
 .ai-comp{flex:none;padding:6px 12px calc(10px + env(safe-area-inset-bottom))}
 #aiApp.kb .ai-comp{padding-bottom:8px}
 .ai-box{max-width:720px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--glass);border:1px solid var(--edge);border-radius:26px;padding:6px}
-.ai-box textarea{flex:1;align-self:center;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:400 16px/1.45 "Instrument Sans",system-ui,sans-serif;resize:none;max-height:140px;padding:8px 0}
-.ai-box textarea::placeholder{color:var(--muted)}
+.ai-box .ai-in{flex:1;align-self:center;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:400 16px/1.45 "Instrument Sans",system-ui,sans-serif;max-height:140px;min-height:1.45em;overflow-y:auto;padding:8px 0;white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text;-webkit-tap-highlight-color:transparent;cursor:text}
+.ai-in.empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
+#aiApp.kb .ai-note{display:none}
 .ai-send{flex:none;width:38px;height:38px;margin:0;padding:0;border:0;border-radius:50%;background:var(--a);color:var(--onA);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .ai-send:disabled{opacity:.3;cursor:not-allowed}
 .ai-note{text-align:center;color:var(--muted);font-size:12px;margin-top:8px}
@@ -275,7 +276,7 @@ html.ai-lock body{position:fixed;left:0;right:0;width:100%}
       <button type="button" id="aiBtnDoc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg><span data-i="aiAttFile"></span></button>
     </div>
     <div class="ai-atts" id="aiAtts"></div>
-    <div class="ai-box"><button type="button" class="ai-plus" id="aiPlus" data-aria="aiAttAdd" aria-label="Attach"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><textarea id="aiIn" rows="1" maxlength="2000" data-ph="aiPh" placeholder="Message lowend AI" autocomplete="off"></textarea><button class="ai-send" id="aiSend" disabled aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+    <div class="ai-box"><button type="button" class="ai-plus" id="aiPlus" data-aria="aiAttAdd" aria-label="Attach"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><div id="aiIn" class="ai-in empty" contenteditable="plaintext-only" role="textbox" aria-multiline="true" aria-label="Message" data-ph="aiPh" data-placeholder="Message lowend AI" autocapitalize="sentences" enterkeyhint="enter"></div><button class="ai-send" id="aiSend" disabled aria-label="Send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
     <div class="ai-note" data-i="aiNote"></div>
     <input type="file" id="aiFPhoto" accept="image/*,video/*" multiple hidden>
     <input type="file" id="aiFCam" accept="image/*,video/*" capture hidden>
@@ -531,7 +532,7 @@ function applyTheme() {
 function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-i]').forEach(el => el.textContent = t(el.dataset.i));
-  document.querySelectorAll('[data-ph]').forEach(el => el.placeholder = t(el.dataset.ph));
+  document.querySelectorAll('[data-ph]').forEach(el => { el.placeholder = t(el.dataset.ph); el.setAttribute('data-placeholder', t(el.dataset.ph)); });
   document.querySelectorAll('[data-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.aria)));
   const other = lang === 'ru' ? 'EN' : 'RU';
   $('langBtn').textContent = other; $('langBtnW').textContent = other;
@@ -1103,6 +1104,16 @@ function renderChat() {
   if (buildBox && buildBox.th === cur) col.appendChild(buildBox.el);
   toBottom(true);
 }
+(() => { // поле ввода — contenteditable: так iOS не рисует серую панель со стрелками и галочкой над клавиатурой
+  const el = $('aiIn'); if (el.contentEditable !== 'plaintext-only') el.contentEditable = 'true';
+  const norm = x => x.replace(/\u00a0/g, ' ').replace(/\n$/, '');
+  Object.defineProperty(el, 'value', { get() { return norm(el.innerText || ''); }, set(v) { el.textContent = v; el.classList.toggle('empty', !v); } });
+  el.addEventListener('input', () => {
+    let v = el.value; if (v.length > 2000) { el.value = v = v.slice(0, 2000); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+    el.classList.toggle('empty', !v.trim() && !/\n/.test(v));
+    if (!v) el.textContent = ''; // Safari оставляет <br> в пустом поле: чистим, чтобы вернулась подсказка
+  });
+})();
 const updSend = () => { $('aiSend').disabled = aiBusy || attBusy > 0 || (!$('aiIn').value.trim() && !atts.length); };
 const jobId = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), x => x.toString(16).padStart(2, '0')).join('');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -1171,7 +1182,7 @@ async function aiSend(text) {
   } catch (e) { typing.remove(); if (cur === th) $('aiCol').appendChild(msgEl({ role: 'assistant', text: niceErr(e, t('aiErr')), err: true }, false)); }
   aiBusy = false; updSend(); toBottom(); fitAI();
 }
-function aiGrow() { const a = $('aiIn'); a.style.height = 'auto'; a.style.height = Math.min(140, a.scrollHeight) + 'px'; }
+function aiGrow() { $('aiIn').style.height = ''; } // поле растёт само (contenteditable), до 140px
 /* ---------- подгонка чата под клавиатуру (iOS не уменьшает окно, а прокручивает его) ---------- */
 const vv = window.visualViewport;
 let fitRaf = 0;
@@ -1300,7 +1311,7 @@ document.addEventListener('click', e => { if (!aiPop.hidden && !aiPop.contains(e
 const pickWith = id => () => { aiPop.hidden = true; $('aiPlus').classList.remove('on'); $(id).click(); };
 $('aiBtnPhoto').onclick = pickWith('aiFPhoto'); $('aiBtnCam').onclick = pickWith('aiFCam'); $('aiBtnDoc').onclick = pickWith('aiFDoc');
 ['aiFPhoto', 'aiFCam', 'aiFDoc'].forEach(id => $(id).onchange = e => { const fs = Array.from(e.target.files || []); e.target.value = ''; addFiles(fs); });
-$('aiIn').addEventListener('paste', e => { const fs = Array.from((e.clipboardData && e.clipboardData.files) || []); if (fs.length) { e.preventDefault(); addFiles(fs); } });
+$('aiIn').addEventListener('paste', e => { const fs = Array.from((e.clipboardData && e.clipboardData.files) || []); e.preventDefault(); if (fs.length) addFiles(fs); else { const tx = (e.clipboardData && e.clipboardData.getData('text/plain')) || ''; if (tx) document.execCommand('insertText', false, tx); } }); // вставляется только простой текст
 aiEl.addEventListener('dragover', e => { e.preventDefault(); aiEl.classList.add('drag'); });
 ['dragleave', 'drop'].forEach(ev => aiEl.addEventListener(ev, e => { e.preventDefault(); aiEl.classList.remove('drag'); if (ev === 'drop') addFiles(e.dataTransfer.files); }));
 $('menuBtn').onclick = drawerOpen; $('aiMenu').onclick = drawerOpen;

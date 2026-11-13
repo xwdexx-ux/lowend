@@ -457,6 +457,9 @@ function soundAI(req, res) {
       // ИИ написал «собираю эдит», а поле video не вернул: ничего бы не запустилось. Просим исправиться один раз, иначе честно говорим, что сборки нет
       const hasVid = x => !!(x && x.video && typeof x.video === 'object' && x.video.type === 'edit');
       const claimsBuild = x => /собира|соберу|сборк|запустил|запускаю|обрабатыва|рендер|оставляю|убираю|меняю|сохраняю|эдит\s+(уже\s+)?(готов|собран)|видео\s+(уже\s+)?(готов|собран)|появится в чате|скоро (всё|он|будет|появ)|будет готов|building|processing|rendering|will appear|(edit|video|it)\s+(is|'s)\s+(ready|done)|in progress/i.test(x);
+      const noVidSay = b.lang === 'ru' ? 'Видео не прикреплено, поэтому эдит не собирается. Нажми «+», прикрепи видео и напиши, что сделать.' : 'No video is attached, so no edit is being built. Tap “+”, attach a video and tell me what to do.';
+      if (studioOk && !vids && hasVid(o)) { delete o.video; o.say = noVidSay; } // эдит без видео не запустить: не обещаем
+      else if (studioOk && !vids && estate !== 'running' && claimsBuild(String(o.say || ''))) o.say = noVidSay;
       if (studioOk && estate !== 'running' && vids && !hasVid(o) && claimsBuild(String(o.say || ''))) {
         try {
           const t2 = await ask([...msgs, { role: 'assistant', text: JSON.stringify({ say: String(o.say) }) }, { role: 'user', text: '[сообщение сайта, не от пользователя] Ты написал, что делаешь эдит, но не вернул поле video, поэтому ничего не запустилось. Верни ответ ещё раз, обязательно с полем video (учти lastEdit, если он есть). Если сделать это нельзя, честно напиши в say, что ничего не собирается, и почему.' }]);
