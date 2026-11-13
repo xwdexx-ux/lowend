@@ -190,8 +190,8 @@ h2{font:800 18px "Bricolage Grotesque",sans-serif;margin-bottom:10px}
 .msg.u{align-self:flex-end;max-width:85%;background:var(--glass);border:1px solid var(--edge);padding:10px 14px;border-radius:18px}
 .msg.a{align-self:flex-start;max-width:100%;line-height:1.6}
 .msg.a.err{color:var(--muted)}
-.ai-w{animation:aiw .5s ease both}
-@keyframes aiw{from{opacity:0;filter:blur(4px)}to{opacity:1;filter:blur(0)}}
+.ai-w{animation:aiw .6s ease-out both}
+@keyframes aiw{from{opacity:0}to{opacity:1}}
 .ai-acts{display:flex;align-items:center;gap:2px;margin-top:10px;white-space:normal;margin-left:-8px}
 .ai-acts button{background:none;border:0;padding:8px;border-radius:10px;color:var(--muted);cursor:pointer;display:flex;-webkit-tap-highlight-color:transparent}
 .ai-acts button:active{background:var(--glass)}
@@ -1126,8 +1126,8 @@ function msgEl(m, animate) {
   if (m.atts && m.atts.length) { const w = document.createElement('div'); w.className = 'ai-thumbs'; if (!m.text) w.style.marginBottom = '0'; m.atts.forEach(a => w.appendChild(attEl(a, false))); d.insertBefore(w, tx); }
   if (m.role === 'user' || !animate) tx.textContent = m.text;
   else { // печатается постепенно, как ответ в чате
-    const parts = m.text.split(/(\s+)/), per = Math.max(2, Math.ceil(parts.length / 70)); let n = 0; // слова плавно проявляются по очереди, как в Claude
-    const tick = () => { for (let k = 0; k < per && n < parts.length; k++, n++) { const w = document.createElement('span'); w.className = 'ai-w'; w.textContent = parts[n]; tx.appendChild(w); } toBottom(); if (n < parts.length) setTimeout(tick, 28); else if (actsBox) { actsBox.hidden = false; refreshActs(); toBottom(); } };
+    const parts = m.text.split(/(\s+)/), per = Math.max(2, Math.ceil(parts.length / 140)); let n = 0; // слова плавно проявляются по очереди, как в Claude
+    const tick = () => { for (let k = 0; k < per && n < parts.length; k++, n++) { const w = document.createElement('span'); w.className = 'ai-w'; w.textContent = parts[n]; tx.appendChild(w); } toBottom(); if (n < parts.length) setTimeout(tick, 18); else if (actsBox) { actsBox.hidden = false; refreshActs(); toBottom(); } };
     var pendingTick = tick;
   }
   if (m.vid || m.vidId) {
