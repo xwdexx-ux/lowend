@@ -27,7 +27,7 @@ header{display:flex;align-items:center;justify-content:space-between;flex-wrap:w
 .grid{display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
 .grid>*,.card{min-width:0}
 @media(min-width:860px){.grid{grid-template-columns:420px minmax(0,1fr);align-items:start}}
-.card{background:var(--glass);border:1px solid var(--edge);border-radius:26px;padding:20px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.card{background:var(--glass);border:1px solid var(--edge);border-radius:26px;padding:20px}
 .cover{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:1;border-radius:22px;overflow:hidden;background:linear-gradient(135deg,var(--a),var(--b));box-shadow:0 24px 60px #0007;transition:transform .08s linear;display:grid;place-items:center}
 .cover img{width:100%;height:100%;object-fit:cover;display:none}
 .cover.has img{display:block}
@@ -848,28 +848,41 @@ setSettings(1, 0, 0); fill($('seek'));
 
 /* ---------- визуализация + время ---------- */
 const vz = $('viz'), vg = vz.getContext('2d');
+const vzEls = { dur: $('dur'), seek: $('seek'), cur: $('cur'), cover: $('cover') };
+let vzAccent = '#fff', vzFrame = 0, vzIdleKey = '', vzData = null, vzScale = '', vzDur = '', vzCur = '';
 (function draw() {
   requestAnimationFrame(draw);
   if (buffer) {
-    const p = pos(); $('dur').textContent = fmt(buffer.duration);
-    if (!dragging) { $('seek').value = p / buffer.duration * 1000; fill($('seek')); $('cur').textContent = fmt(p); }
+    const p = pos(), d = fmt(buffer.duration); if (d !== vzDur) { vzDur = d; vzEls.dur.textContent = d; }
+    if (!dragging) {
+      if (playing || vzEls.seek.dataset.p !== String(p)) { vzEls.seek.value = p / buffer.duration * 1000; fill(vzEls.seek); vzEls.seek.dataset.p = String(p); }
+      const c = fmt(p); if (c !== vzCur) { vzCur = c; vzEls.cur.textContent = c; }
+    }
   }
-  vg.clearRect(0, 0, vz.width, vz.height);
-  const a = getComputedStyle(document.documentElement).getPropertyValue('--a').trim() || '#fff';
+  if (!(vzFrame++ % 30)) vzAccent = getComputedStyle(document.documentElement).getPropertyValue('--a').trim() || '#fff'; // цвет читаем раз в полсекунды, а не каждый кадр
+  const a = vzAccent;
   let low = 0;
   if (analyser && playing) {
-    const d = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(d);
+    vzIdleKey = '';
+    if (!vzData || vzData.length !== analyser.frequencyBinCount) vzData = new Uint8Array(analyser.frequencyBinCount);
+    const d = vzData; analyser.getByteFrequencyData(d);
+    vg.clearRect(0, 0, vz.width, vz.height);
     const n = 32, w = vz.width / n;
+    vg.fillStyle = a; vg.globalAlpha = .9;
     for (let i = 0; i < n; i++) {
       const h = Math.max(3, d[i] / 255 * vz.height);
-      vg.fillStyle = a; vg.globalAlpha = .9;
       vg.beginPath(); vg.roundRect(i * w + 2, vz.height - h, w - 4, h, 3); vg.fill();
     }
     low = (d[0] + d[1] + d[2] + d[3]) / (4 * 255);
   } else {
-    for (let i = 0; i < 32; i++) { vg.fillStyle = a; vg.globalAlpha = .25; vg.fillRect(i * (vz.width / 32) + 2, vz.height - 3, vz.width / 32 - 4, 3); }
+    const key = a + '|' + vz.width + 'x' + vz.height; // на паузе полоски не меняются: рисуем один раз
+    if (key !== vzIdleKey) {
+      vzIdleKey = key; vg.clearRect(0, 0, vz.width, vz.height);
+      for (let i = 0; i < 32; i++) { vg.fillStyle = a; vg.globalAlpha = .25; vg.fillRect(i * (vz.width / 32) + 2, vz.height - 3, vz.width / 32 - 4, 3); }
+    }
   }
-  $('cover').style.transform = `scale(${1 + low * low * .06})`;
+  const sc = 'scale(' + (1 + low * low * .06).toFixed(3) + ')';
+  if (sc !== vzScale) { vzScale = sc; vzEls.cover.style.transform = sc; }
 })();
 
 /* ---------- скачивание WAV ---------- */
