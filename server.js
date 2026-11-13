@@ -242,7 +242,7 @@ const EDIT_FIELDS = 'music (номер видео, из которого бра�
   'res (\"same:N\" = такое же разрешение, как у видео номер N; или WxH, например 1080x1920, 720x1280, 1280x720, 1080x1080, 2160x3840), ' +
   'len (длина эдита, секунды 3-120), start (с какой секунды брать музыку), tempo (fast = каждый бит, mid, slow, mix = вразнобой), ' +
   'text (надпись или символы поверх видео, \\n для переноса; пустая строка убирает), textPos (top|center|bottom), textColor (hex), textFont (old|thin|sans|display|mono|serif), textSize (3-16, % высоты кадра), ' +
-  'filter (none|bw|warm|cool|moody|vivid), vignette (true|false), grain (true|false), flash (true|false: вспышка на каждом ударе), zoom (true|false: пульс приближения на ударе), fps (30|60), quality (fast|high|max)';
+  'filter (none|bright|bw|warm|cool|moody|vivid; bright = светлый фильтр, осветляет кадр), vignette (true|false), grain (true|false), flash (true|false: вспышка на каждом ударе), zoom (true|false: пульс приближения на ударе), fps (30|60), quality (fast|high|max)';
 const SYS_EDIT = 'Ты помощник видео-эдитора сайта lowend. Пользователь описывает монтаж: клипы из его видео режутся вразброс под биты музыки, которая берётся из одного из видео. ' +
   'Тебе дают список видео (номер, имя, размер, длина) и current (текущие настройки). Верни ТОЛЬКО JSON без пояснений и без markdown с полями, которые пользователь просил изменить: ' + EDIT_FIELDS + '. ' +
   'Если пользователь просит качество «очень хорошее» или «лучшее», ставь quality high или max и fps 60. Поля, которые не просили менять, не включай.';
@@ -334,8 +334,18 @@ const SOUND_SYS = 'Ты lowend AI, дружелюбный чат-ассисте�
   'Поля, которые не просили менять, не включай. Если просят найти или подобрать песню, добавь search (строка для поиска). ' +
   'Не ставь bass выше 20 и sub выше 60 без явной просьбы: на динамике телефона сверхнизкие частоты не слышны, лучше умеренный bass и немного dist.';
 const VIDEO_SYS = 'Если пользователь просит сделать видео, эдит или слайдшоу из его видео, добавь в JSON поле video: {\"type\":\"edit\", поля: ' + EDIT_FIELDS + '}. ' +
-  'Эдит (нарезка клипов из прикреплённых видео вразброс под биты, можно фильтры и надпись поверх) сайт собирает прямо в этом чате сразу после твоего ответа. Никуда не перекидывай, Студию и кнопки не упоминай: в say коротко скажи в настоящем времени, что собираешь эдит и что настроил (музыка, длина, темп, надпись). Эдит ещё не готов в момент твоего ответа: никогда не пиши «сделал», «готово», «получилось», сайт сам сообщит, когда файл собран. Не выдумывай символы и детали, которых не нашёл на кадрах. ' +
-  'По умолчанию музыка берётся из видео 1, а разрешение такое же, как у видео 1 (res: \"same:1\"); меняй это, только если пользователь просил другое. Если просят оставить символ или надпись из его видео, найди её на кадрах и положи в text. Не включай в video поля, которые не просили менять. Если прикреплённых видео нет, попроси прикрепить и не добавляй video.';
+  'Эдит (нарезка клипов из прикреплённых видео вразброс под биты, можно фильтры и надпись поверх) сайт собирает прямо в этом чате сразу после твоего ответа. Никуда не перекидывай, Студию и кнопки не упоминай: в say коротко скажи в настоящем времени, что собираешь эдит и что настроил (музыка, длина, темп, надпись). Эдит ещё не готов в момент твоего ответа: никогда не пиши «сделал», «готово», «получилось», сайт сам сообщит, когда файл собран. Символы и надпись для text бери ТОЛЬКО из сообщений пользователя и копируй их посимвольно, ничего не заменяя похожими знаками. Никогда не угадывай символ по кадрам видео (кадры мелкие, ты ошибёшься). Ник, имя пользователя и @-теги в text не добавляй, если пользователь сам не попросил. Если пользователь хочет символ «как на видео» и не написал его в чате, не добавляй text и попроси прислать символ текстом (скопировать и вставить). Если просят «светлый фильтр», ставь filter bright. ' +
+  'По умолчанию музыка берётся из видео 1, а разрешение такое же, как у видео 1 (res: \"same:1\"); меняй это, только если пользователь просил другое. Не включай в video поля, которые не просили менять. Если прикреплённых видео нет, попроси прикрепить и не добавляй video.';
+// Надпись эдита берём только из слов пользователя: ИИ путает символы на мелких кадрах и дописывает ники.
+// Если пользователь прислал символ (например ℏ), он ставится как есть. @ник убирается, если пользователь его не писал.
+const SYM_RE = /[\u2100-\u214F\u2190-\u23FF\u25A0-\u27BF\u2B00-\u2BFF\u3000-\u30FF\u0370-\u03FF\p{So}\p{Sm}][\uFE0E\uFE0F]?/gu;
+function fixVideoText(v, said) {
+  const o = { ...v }, said0 = String(said || '');
+  if (typeof o.text === 'string') o.text = o.text.replace(/@[\w.]{2,}/g, m => said0.toLowerCase().includes(m.toLowerCase()) ? m : '').replace(/[ \t]+\n/g, '\n').trim();
+  const sym = (said0.match(SYM_RE) || []).filter(m => !/\p{Extended_Pictographic}/u.test(m)).join('').trim(); // эмодзи из болтовни не считаем символом
+  if (sym && sym.length <= 8 && /символ|надпис|текст|написа|поверх|symbol|text|caption|logo|лого/i.test(said0) && !String(o.text || '').includes(sym)) o.text = sym; // пользователь сам прислал символ: он и есть надпись
+  return o;
+}
 const soundHits = new Map();
 // Задачи ИИ: ответ считается на сервере и хранится 10 минут. Если телефон ушёл в TikTok и связь оборвалась, сайт заберёт готовый ответ по id
 const aiJobs = new Map(); // id -> { th, st: 'run'|'done', code, body, at }
@@ -398,7 +408,7 @@ function soundAI(req, res) {
       if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return out(400, { error: 'empty' });
       const att = cleanAttach(b.attach);
       if (att.tooBig) return out(413, { error: 'Вложения слишком большие. / Attachments are too large.' });
-      const last = msgs[msgs.length - 1];
+      const last = msgs[msgs.length - 1], userSaid = last.text; // что пользователь написал сам, без вложений
       if (att.note) last.text += '\n[' + att.note + ']';
       for (const f of att.files) last.text += '\n\n[Файл: ' + f.name + ']\n' + f.text;
       const withFiles = hasAttach(att);
@@ -425,7 +435,7 @@ function soundAI(req, res) {
       try { o = JSON.parse(clean); } catch (e) { const m = clean.match(/\{[\s\S]*\}/); try { o = m ? JSON.parse(m[0]) : null; } catch (e2) { o = null; } }
       if (!o || typeof o !== 'object') o = { say: clean };
       const keep = {}; for (const k of ['say', 'speed', 'bass', 'reverb', 'pan', 'vol', 'treble', 'echo', 'muffle', 'sub', 'dist', 'search']) if (o[k] !== undefined) keep[k] = o[k];
-      if (studioOk && o.video && typeof o.video === 'object' && o.video.type === 'edit' && JSON.stringify(o.video).length < 1500) keep.video = o.video;
+      if (studioOk && o.video && typeof o.video === 'object' && o.video.type === 'edit' && JSON.stringify(o.video).length < 1500) keep.video = fixVideoText(o.video, userSaid);
       if (!keep.say) throw new Error('empty reply: ' + text.slice(0, 200));
       out(200, keep);
     } catch (e) { console.log('ai error:', e.message); out(500, { error: 'ИИ не смог обработать запрос. / AI could not process the request.' }); }

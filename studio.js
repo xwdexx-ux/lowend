@@ -1,10 +1,10 @@
 // Студия lowend: видео с текстом поверх музыки. Этот файл сервер отдаёт только админам и владельцу.
 (() => {
   if (window.openStudio) return;
-  const EN = {"— выбрать —": "— select —", "Inter Light, узкий (как в референсе)": "Inter Light, narrow (like the reference)", "Inter Light (обычная ширина)": "Inter Light (normal width)", "Обычный": "Regular", "Жирный": "Bold", "Моно": "Mono", "Курсив с засечками": "Italic serif", "16:9 · 1022×576 (как в твоём видео)": "16:9 · 1022×576 (like in your video)", "Между началом и концом меньше секунды. Трек длится ": "Start and end are less than a second apart. Track length: ", "Скачать видео (": "Download video (", "Сохранить в Фото": "Save to Photos", "Скачать файл (в «Файлы»)": "Download file (to Files)", "Готово! Нажми «Сохранить в Фото» и выбери «Сохранить видео».": "Done! Tap “Save to Photos” and choose “Save Video”.", "Готово!": "Done!", "Не получилось записать видео.": "Could not record the video.", "Записываю: ": "Recording: ", " с. Не закрывай страницу и не блокируй экран.": " s. Don’t close the page or lock the screen.", "Этот браузер не умеет записывать видео.": "This browser can’t record video.", "Трек не найден.": "Track not found.", "Сначала загрузи трек на главной или выбери сохранённый.": "First load a track on the main screen or pick a saved one.", "ИИ думает…": "AI is thinking…", "Готово. Проверь превью и нажми «Сделать видео».": "Done. Check the preview and tap “Make video”.", "ИИ недоступен.": "AI is unavailable.", "Сначала загрузи трек на главной.": "Load a track on the main screen first.", "Название пресета:": "Preset name:", "Текущий трек на главной": "Current track on the main screen", "Трек на главной: ": "Main track: ", ". Секунды отсчитываются по времени самого трека.": ". Seconds are counted by the track’s own time.", "Студия": "Studio", "Закрыть": "Close", "ИИ-помощник (необязательно)": "AI assistant (optional)", "Например: как в прошлый раз, но текст lowend и 30 секунд": "E.g. like last time, but with the text “lowend” and 30 seconds", "ИИ": "AI", "Трек": "Track", "Мои пресеты (стиль без текста)": "My presets (style without text)", "Сохранить": "Save", "Удалить пресет": "Delete preset", "Текст": "Text", "Начало = позиция плеера": "Start = player position", "Конец = позиция плеера": "End = player position", "Шрифт": "Font", "Разрешение": "Resolution", "Цвет текста": "Text color", "Цвет фона": "Background color", "Размер текста": "Text size", "Длина (сек, 0 = до конца)": "Length (sec, 0 = to the end)", "Появление из темноты (сек)": "Fade in from black (sec)", "Начать трек с (сек)": "Start track at (sec)", "Закончить на (сек, 0 = до конца)": "End at (sec, 0 = to the end)", "Затухание звука в конце (сек)": "Audio fade-out at the end (sec)", "Полоска прогресса внизу": "Progress bar at the bottom", "Сделать видео": "Make video"};
+  const EN = {"— выбрать —": "— select —", "Inter Light, узкий (как в референсе)": "Inter Light, narrow (like the reference)", "Inter Light (обычная ширина)": "Inter Light (normal width)", "Обычный": "Regular", "Жирный": "Bold", "Моно": "Mono", "Курсив с засечками": "Italic serif", "16:9 · 1022×576 (как в твоём видео)": "16:9 · 1022×576 (like in your video)", "Между началом и концом меньше секунды. Трек длится ": "Start and end are less than a second apart. Track length: ", "Скачать видео (": "Download video (", "Сохранить в Фото": "Save to Photos", "Скачать файл (в «Файлы»)": "Download file (to Files)", "Готово! Нажми «Сохранить в Фото» и выбери «Сохранить видео».": "Done! Tap “Save to Photos” and choose “Save Video”.", "Готово!": "Done!", "Не получилось записать видео.": "Could not record the video.", "Записываю: ": "Recording: ", " с. Можно свернуть: запись встанет на паузу и продолжится, когда вернёшься.": " s. You can switch away: recording pauses and resumes when you return.", "Этот браузер не умеет записывать видео.": "This browser can’t record video.", "Трек не найден.": "Track not found.", "Сначала загрузи трек на главной или выбери сохранённый.": "First load a track on the main screen or pick a saved one.", "ИИ думает…": "AI is thinking…", "Готово. Проверь превью и нажми «Сделать видео».": "Done. Check the preview and tap “Make video”.", "ИИ недоступен.": "AI is unavailable.", "Сначала загрузи трек на главной.": "Load a track on the main screen first.", "Название пресета:": "Preset name:", "Текущий трек на главной": "Current track on the main screen", "Трек на главной: ": "Main track: ", ". Секунды отсчитываются по времени самого трека.": ". Seconds are counted by the track’s own time.", "Студия": "Studio", "Закрыть": "Close", "ИИ-помощник (необязательно)": "AI assistant (optional)", "Например: как в прошлый раз, но текст lowend и 30 секунд": "E.g. like last time, but with the text “lowend” and 30 seconds", "ИИ": "AI", "Трек": "Track", "Мои пресеты (стиль без текста)": "My presets (style without text)", "Сохранить": "Save", "Удалить пресет": "Delete preset", "Текст": "Text", "Начало = позиция плеера": "Start = player position", "Конец = позиция плеера": "End = player position", "Шрифт": "Font", "Разрешение": "Resolution", "Цвет текста": "Text color", "Цвет фона": "Background color", "Размер текста": "Text size", "Длина (сек, 0 = до конца)": "Length (sec, 0 = to the end)", "Появление из темноты (сек)": "Fade in from black (sec)", "Начать трек с (сек)": "Start track at (sec)", "Закончить на (сек, 0 = до конца)": "End at (sec, 0 = to the end)", "Затухание звука в конце (сек)": "Audio fade-out at the end (sec)", "Полоска прогресса внизу": "Progress bar at the bottom", "Сделать видео": "Make video"};
   const tr = x => (typeof lang !== 'undefined' && lang === 'en' && EN[x]) || x; // язык берём с сайта
   const FONTS = {
-    old: '300 {s}px "Lowend Inter", -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
+    old: '300 {s}px "Lowend Inter", -apple-system, "Helvetica Neue", Helvetica, Arial, "Apple Symbols", "Cambria Math", "Times New Roman", serif',
     thin: '300 {s}px "Lowend Inter", -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
     sans: '400 {s}px "Instrument Sans", sans-serif',
     display: '800 {s}px "Bricolage Grotesque", sans-serif',
@@ -75,7 +75,7 @@
     g.globalAlpha = 1; g.fillStyle = d.bg; g.fillRect(0, 0, w, h);
     const fs = Math.round(h * d.size / 100), st = FSTYLE[d.font] || {}, sx = st.sx || 1;
     g.font = FONTS[d.font].replace('{s}', fs); g.fillStyle = d.color; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fontKerning = 'normal'; g.textRendering = 'geometricPrecision';
-    let lines = wrap(g, d.text, w * .84 / sx); if (st.noBlank) lines = lines.filter(Boolean);
+    let lines = wrap(g, String(d.text).replace(/[\uFE0E\uFE0F]/g, ''), w * .84 / sx); if (st.noBlank) lines = lines.filter(Boolean);
     const lh = fs * (st.lh || 1.35), y0 = h * (.5 + (st.dy || 0)) - (lines.length - 1) * lh / 2;
     g.globalAlpha = a; g.save(); g.scale(sx, 1);
     if (st.round) { g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = fs * st.round; g.strokeStyle = d.color; }
@@ -157,7 +157,7 @@
       const t0 = performance.now(), ms = len * 1000;
       await new Promise(done => (function tick() {
         const el = performance.now() - t0; draw(g, w, h, Math.min(1, el / ms), el / 1000);
-        st.textContent = tr('Записываю: ') + Math.round(el / 1000) + ' / ' + Math.round(len) + tr(' с. Не закрывай страницу и не блокируй экран.');
+        st.textContent = tr('Записываю: ') + Math.round(el / 1000) + ' / ' + Math.round(len) + tr(' с. Можно свернуть: запись встанет на паузу и продолжится, когда вернёшься.');
         el >= ms ? done() : requestAnimationFrame(tick);
       })());
       mr.stop(); await stopped; stopSrc(); playing = false; outEl.pause(); setPlayUI(); nodes.out.disconnect(fadeG); fadeG.disconnect();
@@ -285,12 +285,12 @@
     return segs;
   }
   // --- эдит: собирается из чата lowend AI (window.studioEdit). Интерфейса эдита в Студии больше нет: Студия только для видео с текстом ---
-  Object.assign(EN, { 'Добавь хотя бы одно видео.': 'Add at least one video.', 'Разбираю музыку…': 'Analyzing the music…', 'Готовлю клипы…': 'Preparing the clips…', 'Открываю видео…': 'Opening the videos…', 'Не получилось открыть ': 'Could not open ', 'Студия занята: дождись конца текущей сборки.': 'The Studio is busy: wait for the current render to finish.', 'Записываю: ': 'Recording: ', ' с. Не закрывай страницу и не блокируй экран.': ' s. Do not close the page or lock the screen.', 'Не получилось достать звук из видео ': 'Could not get the sound from ', 'В этом видео нет звука: ': 'This video has no sound: ', 'В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ': 'The music video has under 2 seconds of sound after that second. Its length: ', 'Этот браузер не умеет записывать видео.': 'This browser cannot record video.' });
+  Object.assign(EN, { 'Добавь хотя бы одно видео.': 'Add at least one video.', 'Разбираю музыку…': 'Analyzing the music…', 'Готовлю клипы…': 'Preparing the clips…', 'Открываю видео…': 'Opening the videos…', 'Не получилось открыть ': 'Could not open ', 'Студия занята: дождись конца текущей сборки.': 'The Studio is busy: wait for the current render to finish.', 'Записываю: ': 'Recording: ', ' с. Можно свернуть: запись встанет на паузу и продолжится, когда вернёшься.': ' s. You can switch away: recording pauses and resumes when you return.', 'Не получилось достать звук из видео ': 'Could not get the sound from ', 'В этом видео нет звука: ': 'This video has no sound: ', 'В видео с музыкой после этой секунды меньше 2 секунд звука. Его длина: ': 'The music video has under 2 seconds of sound after that second. Its length: ', 'Этот браузер не умеет записывать видео.': 'This browser cannot record video.' });
   // --- понятные сообщения об ошибках: свои тексты показываем как есть, а сырые ошибки браузера и кода переводим на человеческий ---
   Object.assign(EN, {
     'Не получилось прочитать звук из видео. Попробуй другое видео или сохрани его как MP4.': 'Could not read the sound from the video. Try another video or save it as MP4.',
     'Этот телефон не смог записать видео в таком формате. Попробуй разрешение поменьше, например 720p.': 'This device could not record video in this format. Try a lower resolution, for example 720p.',
-    'Браузер не дал записать видео или звук. Нажми ещё раз и не сворачивай сайт.': 'The browser did not allow recording video or sound. Tap again and do not minimize the site.',
+    'Браузер не дал записать видео или звук. Нажми ещё раз.': 'The browser did not allow recording video or sound. Tap again.',
     'Не хватило памяти. Попробуй видео покороче или поменьше разрешение.': 'Out of memory. Try shorter videos or a lower resolution.',
     'Не получилось собрать эдит.': 'Could not build the edit.',
     'Это ошибка внутри сайта, а не в твоих видео': 'This is a bug inside the site, not a problem with your videos'
@@ -301,7 +301,7 @@
     if (n === 'Error' && m && !CODE_ERR.test(m)) return m; // наши собственные сообщения уже понятные
     if (n === 'EncodingError') return tr('Не получилось прочитать звук из видео. Попробуй другое видео или сохрани его как MP4.');
     if (n === 'NotSupportedError') return tr('Этот телефон не смог записать видео в таком формате. Попробуй разрешение поменьше, например 720p.');
-    if (n === 'NotAllowedError' || n === 'SecurityError') return tr('Браузер не дал записать видео или звук. Нажми ещё раз и не сворачивай сайт.');
+    if (n === 'NotAllowedError' || n === 'SecurityError') return tr('Браузер не дал записать видео или звук. Нажми ещё раз.');
     if (n === 'QuotaExceededError' || /out of memory|allocation|array buffer/i.test(m)) return tr('Не хватило памяти. Попробуй видео покороче или поменьше разрешение.');
     return (fallback || tr('Не получилось собрать эдит.')) + ' ' + tr('Это ошибка внутри сайта, а не в твоих видео') + (m ? ' (' + (n && n !== 'Error' ? n + ': ' : '') + m.slice(0, 120) + ')' : '') + '.';
   }
@@ -322,6 +322,7 @@
     g.save();
     const fill = (op, col, a) => { g.globalCompositeOperation = op; g.globalAlpha = a; g.fillStyle = col; g.fillRect(0, 0, w, h); };
     switch (E.filter) {
+      case 'bright': fill('screen', '#1a1a1a', 1); fill('soft-light', '#ffffff', .7); break; // светлый: поднимает тени и добавляет яркости
       case 'bw': fill('saturation', '#808080', 1); break;
       case 'warm': fill('soft-light', '#ff8a2a', .55); break;
       case 'cool': fill('soft-light', '#2a7bff', .55); break;
@@ -343,7 +344,7 @@
     g.restore();
   }
   function edTextDraw(g, w, h, E, t) { // надпись поверх эдита: шрифт, цвет, размер и положение берём из настроек
-    const txt = String(E.text || '').trim(); if (!txt) return;
+    const txt = String(E.text || '').replace(/[\uFE0E\uFE0F]/g, '').trim(); if (!txt) return;
     const fs = Math.round(h * E.textSize / 100), st = FSTYLE[E.textFont] || {}, sx = st.sx || 1;
     g.save();
     g.globalAlpha = Math.max(0, Math.min(1, t / .4)); // надпись плавно появляется в начале
@@ -358,7 +359,7 @@
     g.restore();
   }
   const evenN = n => Math.max(2, Math.round(n / 2) * 2);
-  const FILTERS = ['none', 'bw', 'warm', 'cool', 'moody', 'vivid'], TEMPOS = ['fast', 'mid', 'slow', 'mix'], POS = ['top', 'center', 'bottom'], QS = ['fast', 'high', 'max'];
+  const FILTERS = ['none', 'bright', 'bw', 'warm', 'cool', 'moody', 'vivid'], TEMPOS = ['fast', 'mid', 'slow', 'mix'], POS = ['top', 'center', 'bottom'], QS = ['fast', 'high', 'max'];
   const ED_DEF = { music: 1, also: false, res: 'v:0', len: 15, start: 0, tempo: 'mid', text: '', textPos: 'center', textColor: '#ffffff', textFont: 'old', textSize: 7, filter: 'none', vignette: false, grain: false, flash: false, zoom: false, fps: 60, quality: 'high' };
   function edSpec(j, items) { // настройки от ИИ -> проверенные настройки эдита
     const E = { ...ED_DEF }, has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -546,7 +547,7 @@
         const dt = t - segs[cur].t0, v = pool[segs[cur].k].v;
         if (!v.seeking && v.readyState >= 2) cover(v, E.zoom ? 1 + .08 * Math.pow(Math.max(0, 1 - dt / .22), 2) : 1);
         edFx(g, w, h, E, Math.max(0, 1 - dt / .12)); edTextDraw(g, w, h, E, t);
-        const sec = Math.floor(t); if (sec !== lastSay) { lastSay = sec; say(tr('Записываю: ') + Math.min(sec, Math.round(len)) + ' / ' + Math.round(len) + tr(' с. Не закрывай страницу и не блокируй экран.')); }
+        const sec = Math.floor(t); if (sec !== lastSay) { lastSay = sec; say(tr('Записываю: ') + Math.min(sec, Math.round(len)) + ' / ' + Math.round(len) + tr(' с. Можно свернуть: запись встанет на паузу и продолжится, когда вернёшься.')); }
         t >= len ? done() : requestAnimationFrame(tick);
       })()); } finally { document.removeEventListener('visibilitychange', onVis); }
       if (mr.state === 'paused') try { mr.resume(); } catch (e) {}
