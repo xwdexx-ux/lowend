@@ -3,6 +3,7 @@
   if (window.openStudio) return;
   const EN = {"— выбрать —": "— select —", "Inter Light, узкий (как в референсе)": "Inter Light, narrow (like the reference)", "Inter Light (обычная ширина)": "Inter Light (normal width)", "Обычный": "Regular", "Жирный": "Bold", "Моно": "Mono", "Курсив с засечками": "Italic serif", "16:9 · 1022×576 (как в твоём видео)": "16:9 · 1022×576 (like in your video)", "Между началом и концом меньше секунды. Трек длится ": "Start and end are less than a second apart. Track length: ", "Скачать видео (": "Download video (", "Сохранить в Фото": "Save to Photos", "Скачать файл (в «Файлы»)": "Download file (to Files)", "Готово! Нажми «Сохранить в Фото» и выбери «Сохранить видео».": "Done! Tap “Save to Photos” and choose “Save Video”.", "Готово!": "Done!", "Не получилось записать видео.": "Could not record the video.", "Записываю: ": "Recording: ", " с.": " s.", "Этот браузер не умеет записывать видео.": "This browser can’t record video.", "Трек не найден.": "Track not found.", "Сначала загрузи трек на главной или выбери сохранённый.": "First load a track on the main screen or pick a saved one.", "ИИ думает…": "AI is thinking…", "Готово. Проверь превью и нажми «Сделать видео».": "Done. Check the preview and tap “Make video”.", "ИИ недоступен.": "AI is unavailable.", "Сначала загрузи трек на главной.": "Load a track on the main screen first.", "Название пресета:": "Preset name:", "Текущий трек на главной": "Current track on the main screen", "Трек на главной: ": "Main track: ", ". Секунды отсчитываются по времени самого трека.": ". Seconds are counted by the track’s own time.", "Студия": "Studio", "Закрыть": "Close", "ИИ-помощник (необязательно)": "AI assistant (optional)", "Например: как в прошлый раз, но текст lowend и 30 секунд": "E.g. like last time, but with the text “lowend” and 30 seconds", "ИИ": "AI", "Трек": "Track", "Мои пресеты (стиль без текста)": "My presets (style without text)", "Сохранить": "Save", "Удалить пресет": "Delete preset", "Текст": "Text", "Начало = позиция плеера": "Start = player position", "Конец = позиция плеера": "End = player position", "Шрифт": "Font", "Разрешение": "Resolution", "Цвет текста": "Text color", "Цвет фона": "Background color", "Размер текста": "Text size", "Длина (сек, 0 = до конца)": "Length (sec, 0 = to the end)", "Появление из темноты (сек)": "Fade in from black (sec)", "Начать трек с (сек)": "Start track at (sec)", "Закончить на (сек, 0 = до конца)": "End at (sec, 0 = to the end)", "Затухание звука в конце (сек)": "Audio fade-out at the end (sec)", "Полоска прогресса внизу": "Progress bar at the bottom", "Сделать видео": "Make video"};
   const tr = x => (typeof lang !== 'undefined' && lang === 'en' && EN[x]) || x; // язык берём с сайта
+  Object.assign(EN, { 'Обрезка трека': 'Trim the track', 'Тяни края на волне, чтобы обрезать трек. Выбранный кусок пойдёт и в видео.': 'Drag the edges on the waveform to trim the track. The selected part is also used in the video.', 'Выделено: ': 'Selected: ', ' с': ' s', 'Прослушать выделенное': 'Play selection', 'Стоп': 'Stop', 'Обрезать и скачать трек': 'Trim and download track', 'Скачать трек (WAV)': 'Download track (WAV)', 'Обрезаю трек…': 'Trimming the track…', 'Готово! Трек обрезан.': 'Done! The track is trimmed.', 'Не получилось обрезать трек.': 'Could not trim the track.', 'Выделенный кусок короче полсекунды.': 'The selection is shorter than half a second.' });
   const act = x => EN[x] || x; // подписи действий (открываю, записываю…) всегда по-английски, как у Claude: и в русской, и в английской версии
   const FONTS = {
     old: '300 {s}px "Lowend Inter", -apple-system, "Helvetica Neue", Helvetica, Arial, "Apple Symbols", "Cambria Math", "Times New Roman", serif',
@@ -58,7 +59,9 @@
 #studio textarea{min-height:84px;resize:vertical}
 #studio .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 #studio input[type=color]{width:100%;height:44px;border:1px solid var(--edge);border-radius:12px;background:var(--field);padding:4px}
-#studio video{width:100%;max-width:100%;margin-top:12px;border-radius:12px}`;
+#studio video{width:100%;max-width:100%;margin-top:12px;border-radius:12px}
+#studio #stWave{height:96px;touch-action:none;cursor:pointer;margin-top:10px;background:var(--field)}
+#studio audio{width:100%;margin-top:10px}`;
   document.head.append(css);
   document.addEventListener('gesturestart', e => { if (root && !root.hidden) e.preventDefault(); }, { passive: false }); // iOS: без щипка-приближения в студии
 
@@ -92,6 +95,7 @@
     const [w, h] = d.res.split('x').map(Number);
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     draw(cv.getContext('2d'), w, h, .3);
+    wave();
   }
   function autoText() {
     const p = [];
@@ -128,7 +132,7 @@
     } catch (e) { st.textContent = (e.name === 'TypeError' ? '' : e.message) || tr('ИИ недоступен.'); }
   }
   async function render() {
-    if (busy) return; busy = true; const st = $('stStatus'), btn = $('stGo'); btn.disabled = true; let mrR = null, fadeR = null;
+    if (busy) return; selStop(); busy = true; const st = $('stStatus'), btn = $('stGo'); btn.disabled = true; let mrR = null, fadeR = null;
     try {
       const sel = $('stTrack').value;
       if (sel !== 'cur') {
@@ -186,6 +190,111 @@
     busy = false; btn.disabled = false;
   }
 
+  // --- обрезка трека: волна с двумя ползунками (те же d.start и d.end, что и в полях ниже), прослушивание куска и скачивание WAV ---
+  let wvBuf = null, wvPk = null, selTimer = 0, trimUrl = '';
+  const tm = x => fmt(x) + '.' + Math.floor((x % 1) * 10);
+  const selRange = () => { const dur = buffer.duration, a = Math.min(d.start || 0, dur), b = d.end > 0 ? Math.min(d.end, dur) : dur; return [a, b]; };
+  function lenHint() { $('stLen').textContent = buffer ? tr('Трек на главной: ') + fmt(buffer.duration) + tr('. Секунды отсчитываются по времени самого трека.') : ''; }
+  function peaksOf(buf) { // 800 столбиков громкости, считаются один раз на трек
+    if (wvBuf === buf) return wvPk;
+    const N = 800, ch = buf.getChannelData(0), step = Math.max(1, Math.floor(ch.length / N)), pk = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const a = i * step, b = Math.min(ch.length, a + step), hop = Math.max(1, Math.floor((b - a) / 64)); let m = 0;
+      for (let j = a; j < b; j += hop) { const v = Math.abs(ch[j]); if (v > m) m = v; }
+      pk[i] = m;
+    }
+    wvBuf = buf; wvPk = pk; return pk;
+  }
+  function wave(ph) { // ph: позиция проигрывания (сек), рисуется тонкой линией
+    const c = $('stWave'); if (!c || !c.clientWidth) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(c.clientWidth * dpr), H = Math.round(96 * dpr);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const g = c.getContext('2d'); g.clearRect(0, 0, W, H);
+    const lab = $('stSel'), pb = $('stSelPlay');
+    if (pb) pb.textContent = selTimer ? '■ ' + tr('Стоп') : '▶ ' + tr('Прослушать выделенное');
+    if (!buffer) { if (lab) lab.textContent = ''; return; }
+    const dur = buffer.duration, [a, b] = selRange(), xa = a / dur * W, xb = b / dur * W, pk = peaksOf(buffer), n = pk.length, bw = W / n;
+    let mx = 0; for (let i = 0; i < n; i++) if (pk[i] > mx) mx = pk[i]; mx = mx || 1;
+    const acc = getComputedStyle(document.documentElement).getPropertyValue('--a').trim() || '#ffffff';
+    g.fillStyle = acc;
+    for (let i = 0; i < n; i++) {
+      const x = i * bw, h = Math.max(2 * dpr, pk[i] / mx * H * .86), inside = x + bw > xa && x < xb;
+      g.globalAlpha = inside ? 1 : .22; g.fillRect(x, (H - h) / 2, Math.max(1, bw - dpr * .6), h);
+    }
+    g.globalAlpha = 1;
+    [xa, xb].forEach(x => { // края выделения: линия и кружок-«ручка»
+      g.fillRect(Math.max(0, Math.min(W - 3 * dpr, x - 1.5 * dpr)), 0, 3 * dpr, H);
+      g.beginPath(); g.arc(Math.max(7 * dpr, Math.min(W - 7 * dpr, x)), H / 2, 7 * dpr, 0, 7); g.fill();
+    });
+    if (ph != null) { g.fillStyle = '#fff'; g.fillRect(ph / dur * W - dpr, 0, 2 * dpr, H); }
+    if (lab) lab.textContent = tr('Выделено: ') + tm(a) + ' – ' + tm(b) + ' (' + (b - a).toFixed(1) + tr(' с') + ')';
+  }
+  function selStop() {
+    if (selTimer) { cancelAnimationFrame(selTimer); selTimer = 0; if (playing) { offset = pos(); stopSrc(); playing = false; outEl.pause(); setPlayUI(); } }
+    wave();
+  }
+  async function selPlay() {
+    if (busy) return;
+    if (selTimer) return selStop();
+    if (!buffer) { $('stStatus').textContent = tr('Сначала загрузи трек на главной.'); return; }
+    initAudio(); if (ctx.state !== 'running') await ctx.resume();
+    const [a, b] = selRange(); outEl.play().catch(() => {}); startAt(a);
+    selTimer = 1; wave(a);
+    (function tick() {
+      if (!selTimer) return;
+      if (!playing || pos() >= b - .03) return selStop();
+      wave(pos()); selTimer = requestAnimationFrame(tick);
+    })();
+  }
+  async function useTrack() { // выбранный в списке сохранённый трек загружаем так же, как перед записью видео
+    const sel = $('stTrack').value; if (sel === 'cur') return;
+    const t = (await tx('readonly', s => s.getAll())).find(x => String(x.id) === sel); if (!t) throw new Error(tr('Трек не найден.'));
+    await loadFile(t.blob, t.title, true); setSettings(t.speed, t.bass, t.reverb, t.pan, t.vol, t.treble, t.echo, t.muffle, t.sub || 0, t.dist || 0);
+  }
+  async function trimDl() { // кусок трека с текущими эффектами -> WAV
+    if (busy) return; selStop(); busy = true; const st = $('stStatus'), btn = $('stTrim'); btn.disabled = true;
+    try {
+      if (!buffer) throw new Error(tr('Сначала загрузи трек на главной или выбери сохранённый.'));
+      const [a, b] = selRange(), seg = b - a; if (seg < .5) throw new Error(tr('Выделенный кусок короче полсекунды.'));
+      st.textContent = tr('Обрезаю трек…');
+      const outLen = seg / S.speed, af = Math.min(d.afade || 0, outLen), tail = af > 0 ? 0 : (S.reverb > 0 || S.echo > 0 ? 3 : 0), sr = buffer.sampleRate;
+      const off = new OfflineAudioContext(2, Math.ceil((outLen + tail) * sr), sr), s = off.createBufferSource(), fg = off.createGain();
+      s.buffer = buffer; s.playbackRate.value = S.speed; fg.connect(off.destination); applySettings(buildChain(off, s, fg));
+      if (af > 0) { fg.gain.setValueAtTime(1, outLen - af); fg.gain.linearRampToValueAtTime(0, outLen); } // затухание в конце, как и в видео
+      s.start(0, a); s.stop(outLen);
+      const blob = toWav(await off.startRendering()), name = (title || 'track') + ' (lowend trim).wav';
+      if (trimUrl) URL.revokeObjectURL(trimUrl); trimUrl = URL.createObjectURL(blob);
+      const o = $('stTrimOut'); o.innerHTML = '';
+      const au = document.createElement('audio'); au.src = trimUrl; au.controls = true;
+      const dl = document.createElement('a'); dl.href = trimUrl; dl.download = name; dl.textContent = tr('Скачать трек (WAV)'); dl.className = 'btn'; dl.style.cssText = 'display:block;text-align:center;margin-top:10px;text-decoration:none';
+      o.append(au, dl); st.textContent = tr('Готово! Трек обрезан.');
+    } catch (e) { console.error('trim error:', e); st.textContent = humanErr(e, tr('Не получилось обрезать трек.')); }
+    busy = false; btn.disabled = false;
+  }
+  function initWave() {
+    const wv = $('stWave'); let drag = null;
+    const at = e => { const r = wv.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * buffer.duration; };
+    const move = e => {
+      if (!drag || !buffer) return;
+      const dur = buffer.duration, gap = Math.min(.5, dur / 2), x = Math.round(at(e) * 10) / 10, [a, b] = selRange();
+      if (drag === 'start') d.start = Math.max(0, Math.min(x, b - gap));
+      else { const v = Math.max(x, a + gap); d.end = v >= dur - .05 ? 0 : Math.min(v, dur); } // у самого конца = «до конца трека»
+      $('stStart').value = d.start; $('stEnd').value = d.end; wave();
+    };
+    wv.onpointerdown = e => { // тянется ближайший к пальцу край, даже если попал не точно в него
+      if (!buffer || busy) return; selStop();
+      const x = at(e), [a, b] = selRange(); drag = Math.abs(x - a) <= Math.abs(x - b) ? 'start' : 'end';
+      try { wv.setPointerCapture(e.pointerId); } catch (e2) {} move(e);
+    };
+    wv.onpointermove = move; wv.onpointerup = wv.onpointercancel = () => { drag = null; };
+    $('stSelPlay').onclick = selPlay; $('stTrim').onclick = trimDl;
+    $('stTrack').onchange = async () => { // сменили трек: загружаем его, края сбрасываем (у каждого трека свои)
+      if (busy) return; selStop();
+      try { await useTrack(); d.start = 0; d.end = 0; lenHint(); sync(); } catch (e) { $('stStatus').textContent = humanErr(e, tr('Трек не найден.')); }
+    };
+    window.addEventListener('resize', () => { if (root && !root.hidden) wave(); });
+  }
+
   async function build() {
     root = document.createElement('div'); root.id = 'studio';
     root.innerHTML = `<div class="box">
@@ -198,6 +307,12 @@
         <div class="src"><select id="stPreset"></select><button class="btn ghost sm" id="stPSave">${tr('Сохранить')}</button><button class="btn ghost sm" id="stPDel" aria-label="${tr('Удалить пресет')}">✕</button></div></div>
       <div class="f"><label for="stText">${tr('Текст')}</label><textarea id="stText"></textarea></div>
       <p class="hint" id="stLen" style="margin-top:14px"></p>
+      <div class="f" style="margin-top:14px"><label>${tr('Обрезка трека')}</label>
+        <canvas id="stWave"></canvas>
+        <p class="hint" id="stSel" style="margin:0;text-align:center"></p>
+        <p class="hint" style="margin:0">${tr('Тяни края на волне, чтобы обрезать трек. Выбранный кусок пойдёт и в видео.')}</p>
+        <div class="src"><button class="btn ghost sm" id="stSelPlay" style="flex:1"></button><button class="btn ghost sm" id="stTrim" style="flex:1">${tr('Обрезать и скачать трек')}</button></div>
+        <div id="stTrimOut"></div></div>
       <div class="src" style="margin-top:6px"><button class="btn ghost sm" id="stHereA" style="flex:1">${tr('Начало = позиция плеера')}</button><button class="btn ghost sm" id="stHereB" style="flex:1">${tr('Конец = позиция плеера')}</button></div>
       <div class="two">
         <div class="f"><label for="stFont">${tr('Шрифт')}</label><select id="stFont">${Object.entries(FONT_NAMES).map(([k, v]) => `<option value="${k}">${tr(v)}</option>`).join('')}</select></div>
@@ -216,7 +331,7 @@
       <p class="hint" id="stStatus" style="margin-top:10px;text-align:center"></p>
       <div id="stOut"></div></div>`;
     document.body.append(root); cv = $('stCanvas');
-    $('stClose').onclick = () => root.hidden = true;
+    $('stClose').onclick = () => { selStop(); root.hidden = true; };
     $('stGo').onclick = render; $('stAIgo').onclick = askAI;
     $('stAI').addEventListener('keydown', e => e.key === 'Enter' && askAI());
     const bind = (id, key, fn = v => v) => $(id).oninput = e => { d[key] = fn(e.target.type === 'checkbox' ? e.target.checked : e.target.value); preview(); };
@@ -227,6 +342,7 @@
     const here = key => { if (!buffer) { $('stStatus').textContent = tr('Сначала загрузи трек на главной.'); return; } d[key] = Math.round(pos() * 10) / 10; sync(); };
     $('stHereA').onclick = () => here('start'); $('stHereB').onclick = () => here('end'); bind('stAfade', 'afade', v => Math.max(0, Math.min(15, +v || 0)));
     $('stProg').onchange = $('stProg').oninput;
+    initWave();
     fillPresets();
     $('stPreset').onchange = e => {
       const pr = getP()[e.target.value]; if (!pr) return;
@@ -616,7 +732,7 @@
     if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
     if (!d.text) d.text = autoText();
     await ensureInter();
-    $('stLen').textContent = buffer ? tr('Трек на главной: ') + fmt(buffer.duration) + tr('. Секунды отсчитываются по времени самого трека.') : '';
+    lenHint();
     sync();
   };
 })();
